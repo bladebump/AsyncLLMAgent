@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
 from pydantic import BaseModel
 T = TypeVar('T')
 
@@ -121,7 +121,7 @@ class VectorStoreBase(Generic[T], ABC):
         pass
     
     @abstractmethod
-    async def add_batch(self, documents: List[Document], collection_name: str) -> int:
+    async def add_batch(self, documents: List[Document], collection_name: str) -> Union[bool, List[str]]:
         """
         批量添加文档
         
@@ -136,7 +136,7 @@ class VectorStoreBase(Generic[T], ABC):
         pass
     
     @abstractmethod
-    async def get(self, id: str, collection_name: str) -> Optional[Document]:
+    async def get(self, id: int, collection_name: str) -> Optional[Document]:
         """
         获取指定ID的文档
         
@@ -150,11 +150,12 @@ class VectorStoreBase(Generic[T], ABC):
         pass
     
     @abstractmethod
-    async def update(self, document: Document, collection_name: str) -> bool:
+    async def update(self, id: int, document: Document, collection_name: str) -> bool:
         """
         更新文档
         
         参数:
+            id: 文档唯一标识
             document: 要更新的文档对象，必须包含id
             collection_name: 集合/索引名称，如果未提供则使用默认值
             
@@ -164,7 +165,7 @@ class VectorStoreBase(Generic[T], ABC):
         pass
     
     @abstractmethod
-    async def delete(self, id: str, collection_name: str) -> bool:
+    async def delete(self, id: str, collection_name: str) -> int:
         """
         删除指定ID的文档
         
@@ -178,7 +179,7 @@ class VectorStoreBase(Generic[T], ABC):
         pass
     
     @abstractmethod
-    async def delete_batch(self, ids: List[str], collection_name: str) -> bool:
+    async def delete_batch(self, ids: List[str], collection_name: str) -> int:
         """
         批量删除文档
         
@@ -194,21 +195,23 @@ class VectorStoreBase(Generic[T], ABC):
     @abstractmethod
     async def vector_search(
         self, 
-        query_vector: List[float], 
+        dense_vector: List[List[float]],
+        collection_name: str, 
+        anns_field: str,
+        output_fields: List[str] = ["text", "filename", "department"],
         limit: int = 10, 
-        offset: int = 0,
-        filter: Optional[Dict[str, Any]] = None,
-        collection_name: str = None
+        filter: str = ""
     ) -> List[Document]:
         """
         向量相似度搜索
         
         参数:
-            query_vector: 查询向量
+            dense_vector: 查询向量
+            collection_name: 目标集合名称，必须提供
+            anns_field: 向量字段名，必须提供
+            output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
-            collection_name: 集合/索引名称，如果未提供则使用默认值
             
         返回:
             匹配的文档列表，按相似度降序排列
@@ -218,23 +221,23 @@ class VectorStoreBase(Generic[T], ABC):
     @abstractmethod
     async def keyword_search(
         self, 
-        query: str, 
-        fields: List[str], 
-        limit: int = 10,
-        offset: int = 0,
-        filter: Optional[Dict[str, Any]] = None,
-        collection_name: str = None
+        sparse_vector: List[List[float]],
+        collection_name: str, 
+        anns_field: str = "sparse_vector",
+        output_fields: List[str] = ["text", "filename", "department"],
+        limit: int = 10, 
+        filter: str = ""
     ) -> List[Document]:
         """
         关键词搜索
         
         参数:
-            query: 查询字符串
-            fields: 要搜索的字段列表
+            sparse_vector: 查询向量
+            collection_name: 目标集合名称，必须提供
+            anns_field: 向量字段名，默认为sparse_vector
+            output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
-            collection_name: 集合/索引名称，如果未提供则使用默认值
             
         返回:
             匹配的文档列表，按相关性降序排列
@@ -244,27 +247,27 @@ class VectorStoreBase(Generic[T], ABC):
     @abstractmethod
     async def hybrid_search(
         self,
-        query_text: str,
-        query_vector: List[float],
-        fields: List[str],
-        limit: int = 10,
-        offset: int = 0,
-        filter: Optional[Dict[str, Any]] = None,
-        alpha: float = 0.5,
-        collection_name: str = None
+        dense_vector: List[List[float]],
+        sparse_vector: List[List[float]] = None,
+        collection_name: str = None, 
+        output_fields: List[str] = ["text", "filename", "department"],
+        limit: int = 10, 
+        filter: str = "",
+        dense_weight: float = 1.0,
+        sparse_weight: float = 1.0
     ) -> List[Document]:
         """
         混合搜索（关键词 + 向量）
         
         参数:
-            query_text: 查询文本
-            query_vector: 查询向量
-            fields: 要搜索的字段列表
+            dense_vector: 查询向量
+            sparse_vector: 查询稀疏向量（可选，当use_sparse_vector=False时可以为None）
+            collection_name: 目标集合名称，必须提供
+            output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
-            alpha: 混合权重，0表示只使用关键词搜索，1表示只使用向量搜索
-            collection_name: 集合/索引名称，如果未提供则使用默认值
+            dense_weight: 密集向量权重
+            sparse_weight: 稀疏向量权重
             
         返回:
             匹配的文档列表，按混合得分降序排列

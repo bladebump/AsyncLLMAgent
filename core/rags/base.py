@@ -49,6 +49,9 @@ class BaseRag(ABC):
         Returns:
             List[Document]: 最相关的文档列表
         """
+        if self.collection_name is None:
+            return []
+        
         try:
             self.docs = await self.search_for_docs()
         except Exception as e:
@@ -70,7 +73,7 @@ class BaseRag(ABC):
             
         return self.docs[:top_k]
     
-    async def search_vector(self, query_list: List[str]) -> List[Document]:
+    async def search_vector(self, query_list: List[str], qa_thould: float = 0.5) -> List[Document]:
         """搜索向量存储中的文档
 
         Args:
@@ -81,30 +84,26 @@ class BaseRag(ABC):
         """
         query_embedding = await self.text_embedder.encode(query_list, task_type="retrieval.query")
 
-        all_docs = []
-
         # 准备过滤条件
         filter = None
         if self.department and len(self.department) > 0:
             filter = {"department": self.department}
+        
+        docs = await self.vector_store.vector_search(
+            query_vector=query_embedding,
+            limit=50,
+            filter=filter,
+            collection_name=self.collection_name
+        )
 
-        for query in query_embedding:
-            # 使用向量搜索
-            docs = await self.vector_store.vector_search(
-                query_vector=query,
-                limit=50,
-                filter=filter
-            )
-            all_docs.extend(docs)
-            
-        # 按ID去重，避免同一文档被多次检索
+        # 按照text去重，保持文档的唯一性
         unique_docs = []
-        seen_ids = set()
-        for doc in all_docs:
-            if doc.id not in seen_ids:
-                seen_ids.add(doc.id)
+        seen_texts = set()
+        for doc in docs:
+            hash_value = hash(doc.text)
+            if hash_value not in seen_texts:
+                seen_texts.add(hash_value)
                 unique_docs.append(doc)
-
         return unique_docs
 
     async def query_vector(self, keywords: List[str]) -> List[Document]:
@@ -116,25 +115,7 @@ class BaseRag(ABC):
         Returns:
             List[Document]: 文档列表
         """
-        all_docs = []
-        for keyword in keywords:
-            # 使用关键词搜索
-            results = await self.vector_store.keyword_search(
-                query=keyword,
-                fields=["text"],
-                limit=50
-            )
-            all_docs.extend(results)
-                
-        # 按ID去重，避免同一文档被多次检索
-        unique_docs = []
-        seen_ids = set()
-        for doc in all_docs:
-            if doc.id not in seen_ids:
-                seen_ids.add(doc.id)
-                unique_docs.append(doc)
-                
-        return unique_docs
+        raise NotImplementedError
     
     def get_cites_from_answer(self, answer: str, doc_list: List[Document]) -> Tuple[Dict[int, int], List[Document]]:
         """从回答中获取引用信息，并且合并同一个文档的引用

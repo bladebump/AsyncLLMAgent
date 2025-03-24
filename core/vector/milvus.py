@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union, Type, Tuple, Literal
+from typing import Any, Dict, List, Optional, Union
 from pymilvus import DataType, AsyncMilvusClient, MilvusClient, AnnSearchRequest, WeightedRanker
 from .base import VectorStoreBase, Document
 from utils.log import logger

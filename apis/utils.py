@@ -8,3 +8,6 @@ def get_llm_cot(request: Request):
 
 def get_embedding(request: Request):
     return request.app.state.embedding
+
+def get_milvus_store(request: Request):
+    return request.app.state.milvus_store
