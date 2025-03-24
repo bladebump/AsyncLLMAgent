@@ -16,6 +16,10 @@ class CreateCollection(BaseModel):
 async def create_collection(collection: CreateCollection, milvus: VectorStoreBase = Depends(get_milvus_store)):
     return await milvus.create_collection(collection.collection_name)
 
+@files_router.get("delete_collection")
+async def delete_collection(collection_name: str, milvus: VectorStoreBase = Depends(get_milvus_store)):
+    return await milvus.drop_collection(collection_name)
+
 @files_router.post("upload_file")
 async def upload_file(file: UploadFile = File(...), 
                       collection_name: str = Form(...),

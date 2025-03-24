@@ -1,4 +1,4 @@
-# Wolf 智能代理系统
+# 异步智能代理系统
 
 Wolf是一个基于大型语言模型（LLM）的智能代理系统，集成了向量检索、嵌入计算、重排序等功能，用于构建高效的人工智能应用。
 
@@ -30,10 +30,25 @@ Wolf是一个基于大型语言模型（LLM）的智能代理系统，集成了�
 
 ### 大语言模型 (LLMs)
 
-系统支持连接到多种大语言模型服务，包括：
-- DeepSeek V3
-- DeepSeek R1
-- 其他兼容OpenAI接口的LLM
+系统提供了灵活的大语言模型接口，支持多种模型实现：
+
+#### 基础模型接口
+- 支持基本的对话功能
+- 支持函数调用
+- 支持流式输出
+- 支持最大长度限制
+
+#### 链式思考模型
+- 支持思考过程输出
+- 支持流式和非流式响应
+- 支持提示词和消息格式
+
+#### 具体实现
+- OpenAI 实现
+  - 支持 OpenAI API
+  - 支持流式输出
+  - 支持函数调用
+  - 支持思考过程输出
 
 ### 嵌入计算
 
@@ -63,58 +78,25 @@ Wolf是一个基于大型语言模型（LLM）的智能代理系统，集成了�
 ### 安装依赖
 
 ```bash
-pip install -r requirements.txt  # 需要创建此文件
+pip install -r requirements.txt
 ```
 
 ### 基本使用
 
 1. 配置客户端
-
-```python
-from core.Agent.assient import AsyncAssistant
-import asyncio
-from config import *
-from core.llms.openai_llm import OpenAICoT
-
-async def main():
-    llm = OpenAICoT(
-        api_base=LLM_API_BASE,
-        api_key=LLM_API_KEY,
-        model=LLM_MODEL,
-    )
-    assistant = AsyncAssistant(
-        llm=llm,
-        memory=None,
-        function_list=[],
-        instruction="以懂王特朗普的口吻回答问题",
-        name="Assistant",
-        stream=True
-    )
-    response = await assistant.run("如何看待LGBTQ")
-    async for thinking, content in response:
-        if thinking:
-            print(thinking)
-        if content:
-            print(content)
-    
-if __name__ == "__main__":
-    asyncio.run(main())
-```
+2. 初始化 LLM 和助手
+3. 运行对话
 
 ## 测试
 
-项目包含多种测试用例，用于验证各个组件的功能：
-- `agent_test.py`: 代理功能测试
-- `function_test.py`: 函数调用测试
-- `mcp_test.py`: 主控制协议测试
-- `open_test.py`: 开放功能测试
+项目包含完整的测试用例，用于验证各个组件的功能。
 
 ## 贡献指南
 
 1. Fork项目
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
 5. 创建Pull Request
 
 ## 许可证
