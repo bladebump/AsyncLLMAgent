@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from utils.retry import retry
-from typing import Iterator, List, Union, Tuple, Callable, Literal
+from typing import Iterator, List, Union, Tuple, Callable, Literal, AsyncIterator
 from utils.log import logger
-from core.openai_types import Message, MessageToolCall
+from core.openai_types import Message, MessageToolParam
 
 class FnCallNotImplError(NotImplementedError):
     pass
@@ -46,39 +46,66 @@ class AsyncBaseLLMModel(ABC):
         return self.max_length
     
     @abstractmethod
-    async def chat(self, messages: List[Message], stop: List[str] | None = None, stream: bool = False, **kwargs) -> Union[Tuple[str, str], Iterator[Tuple[str, str]]]:
+    async def chat(
+        self,
+        prompt: str | None = None,
+        messages: List[Message] | None = None,
+        stop: List[str] | None = None,
+        stream: bool = False,
+        **kwargs
+    ) -> Union[Tuple[str, str], AsyncIterator[Tuple[str, str]]]:
         raise NotImplementedError
     
     @abstractmethod
-    async def chat_with_functions(self, messages: List[Message], functions: List[Callable], **kwargs) -> Message:
+    async def chat_with_functions(
+        self,
+        messages: List[Message],
+        functions: List[MessageToolParam],
+        **kwargs
+    ) -> Message:
         raise NotImplementedError
 
 class AsyncBaseChatCOTModel(AsyncBaseLLMModel):
     """链式思考（CoT）模型基类，返回（思考过程，最终响应）"""
 
     @abstractmethod
-    async def _chat_stream(self,
-                     messages: List[Message],
-                     stop: List[str] | None = None,
-                     **kwargs) -> Iterator[Tuple[str, str]]:
+    async def _chat_stream(
+        self,
+        messages: List[Message],
+        stop: List[str] | None = None,
+        **kwargs
+    ) -> AsyncIterator[Tuple[str, str]]:
         """流式返回（思考token，响应token）的生成器"""
         raise NotImplementedError
 
     @abstractmethod
-    async def _chat_no_stream(self,
-                        messages: List[Message],
-                        stop: List[str] | None = None,
-                        **kwargs) -> Tuple[str, str]:
+    async def _chat_no_stream(
+        self,
+        messages: List[Message],
+        stop: List[str] | None = None,
+        **kwargs
+    ) -> Tuple[str, str]:
         """非流式返回（完整思考，完整响应）的元组"""
         raise NotImplementedError
 
     @retry(max_retries=3, delay_seconds=0.5)
-    async def chat(self,
-             messages: List[Message],
-             stop: List[str] | None = None,
-             stream: bool = False,
-             **kwargs) -> Union[Tuple[str, str], Iterator[Tuple[str, str]]]:
-        assert messages and len(messages) > 0, 'messages must not be empty'
+    async def chat(
+        self,
+        prompt: str | None = None,
+        messages: List[Message] | None = None,
+        stop: List[str] | None = None,
+        stream: bool = False,
+        **kwargs
+    ) -> Union[Tuple[str, str], AsyncIterator[Tuple[str, str]]]:
+        # 处理消息格式
+        if not messages and prompt and isinstance(prompt, str):
+            messages = [Message(role='user', content=prompt)]
+            
+        # 强制使用消息格式
+        assert messages and len(messages) > 0, "Messages cannot be empty"
+        
+        if isinstance(messages[0], Message):
+            messages = [item.model_dump() for item in messages]
 
         if stream:
             return await self._chat_stream(messages, stop=stop, **kwargs)

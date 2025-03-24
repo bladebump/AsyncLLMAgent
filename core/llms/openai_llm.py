@@ -100,32 +100,6 @@ class OpenAICoT(AsyncBaseChatCOTModel):
         else:
             return self._support_fn_call
 
-    @retry(max_retries=3, delay_seconds=0.5)
-    async def chat(self, 
-            prompt: str | None = None,
-            messages: List[Message] | None = None,
-            stop: List[str] | None = None,
-            stream: bool = False,
-            **kwargs) -> Union[Tuple[str, str], AsyncIterator[Tuple[str, str]]]:
-        """统一的对话接口，支持原始提示词和消息格式"""
-            
-        # 处理消息格式
-        if not messages and prompt and isinstance(prompt, str):
-            messages = [Message(role='user', content=prompt)]
-            
-        # 强制使用消息格式
-        assert messages and len(messages) > 0, "Messages cannot be empty"
-        
-        if isinstance(messages[0], Message):
-            messages = [item.model_dump() for item in messages]
-        # 执行父类逻辑
-        return await super().chat(
-            messages=messages,
-            stop=stop,
-            stream=stream,
-            **kwargs
-        )
-
     async def chat_with_functions(self, messages: List[Message], functions: List[MessageToolParam], **kwargs) -> Message:
         """支持MCP工具调用的对话接口"""
         if not isinstance(messages[0], dict):

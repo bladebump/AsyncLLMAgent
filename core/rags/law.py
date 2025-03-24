@@ -11,9 +11,7 @@ class LawRag(BaseRag):
     async def search_for_docs(self) -> list:
         """获取查询文档"""
         query = self.query_template.format(query=self.query)
-        ask_messages = []
-        ask_messages.append({'role':"user", 'content':query})
-        resp = await self.llm.chat(messages=ask_messages)
+        resp = await self.llm.chat(prompt=query)
         query_list = resp.split("\n")
 
         query_list = [query for query in query_list if (query != "") and (len(query) >= 1)]
