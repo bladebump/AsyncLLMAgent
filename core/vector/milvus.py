@@ -19,7 +19,7 @@ class MilvusVectorStore(VectorStoreBase):
         username: str = "",
         password: str = "",
         dense_vector_dim: int = 768,
-        sparse_vector_dim: int = 128,
+        use_sparse_vector: bool = True,
         **kwargs
     ):
         """
@@ -32,7 +32,7 @@ class MilvusVectorStore(VectorStoreBase):
             dense_vector_field: 存储密集向量的字段名
             sparse_vector_field: 存储稀疏向量的字段名
             dense_vector_dim: 密集向量维度
-            sparse_vector_dim: 稀疏向量维度
+            use_sparse_vector: 是否使用稀疏向量字段
             text_field: 存储文本内容的字段名
             document_class: 文档类，用于生成集合字段
             **kwargs: 其他Milvus客户端参数
@@ -41,7 +41,7 @@ class MilvusVectorStore(VectorStoreBase):
         self.username = username
         self.password = password
         self.dense_vector_dim = dense_vector_dim
-        self.sparse_vector_dim = sparse_vector_dim
+        self.use_sparse_vector = use_sparse_vector
         
         # 构建连接参数
         conn_params = {"uri": uri}
@@ -72,14 +72,18 @@ class MilvusVectorStore(VectorStoreBase):
         schema.add_field('filename',DataType.VARCHAR,max_length=512)
         schema.add_field('department',DataType.INT64)
         schema.add_field('dense_vector',DataType.FLOAT_VECTOR,dim=self.dense_vector_dim)
-        schema.add_field('sparse_vector',DataType.SPARSE_FLOAT_VECTOR)
+        # 只有在启用稀疏向量时才添加sparse_vector字段
+        if self.use_sparse_vector:
+            schema.add_field('sparse_vector',DataType.SPARSE_FLOAT_VECTOR)
         return schema
     
     async def _generate_index_params(self):
         index_params = self.client.prepare_index_params()
-        index_params.add_index(field_name=self.dense_vector_field,index_type="AUTOINDEX", metric_type="IP")
-        index_params.add_index(field_name=self.sparse_vector_field,index_type="AUTOINDEX", metric_type="IP")
-        index_params.add_index(field_name=self.text_field,index_type="AUTOINDEX")
+        index_params.add_index(field_name="dense_vector",index_type="AUTOINDEX", metric_type="IP")
+        # 只有在启用稀疏向量时才为sparse_vector字段创建索引
+        if self.use_sparse_vector:
+            index_params.add_index(field_name="sparse_vector",index_type="AUTOINDEX", metric_type="IP")
+        index_params.add_index(field_name="text",index_type="AUTOINDEX")
         return index_params
     
     async def _check_collection_exists(self, collection_name: str) -> bool:
@@ -242,7 +246,7 @@ class MilvusVectorStore(VectorStoreBase):
         self, 
         dense_vector: List[float],
         collection_name: str, 
-        anns_field: Literal['dense_vector', 'sparse_vector'],
+        anns_field: str,
         output_fields: List[str] = ["text", "filename"],
         limit: int = 10, 
         offset: int = 0,
@@ -268,6 +272,10 @@ class MilvusVectorStore(VectorStoreBase):
         
         if not await self.initialize(collection_name):
             raise ValueError(f"集合 {collection_name} 初始化失败，请检查集合是否存在")
+            
+        # 如果是sparse_vector字段且未启用稀疏向量
+        if anns_field == "sparse_vector" and not self.use_sparse_vector:
+            raise ValueError("稀疏向量字段未启用，请使用dense_vector字段")
 
         search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}
         result = await self.Asyclient.search(
@@ -285,7 +293,7 @@ class MilvusVectorStore(VectorStoreBase):
         self, 
         dense_vector: List[float],
         collection_name: str, 
-        anns_field: Literal['sparse_vector'],
+        anns_field: str = "sparse_vector",
         output_fields: List[str] = ["text", "filename"],
         limit: int = 10, 
         offset: int = 0,
@@ -297,7 +305,7 @@ class MilvusVectorStore(VectorStoreBase):
         参数:
             dense_vector: 查询向量
             collection_name: 目标集合名称，必须提供
-            anns_field: 向量字段名，必须提供
+            anns_field: 向量字段名，默认为sparse_vector
             output_fields: 返回字段列表
             limit: 返回结果数量上限
             offset: 结果偏移量，用于分页
@@ -306,14 +314,17 @@ class MilvusVectorStore(VectorStoreBase):
         返回:
             匹配的文档列表，按相关性降序排列
         """
+        if not self.use_sparse_vector and anns_field == "sparse_vector":
+            raise ValueError("稀疏向量字段未启用，请使用dense_vector或其他字段")
+            
         return await self.vector_search(dense_vector,collection_name,anns_field,output_fields,limit,offset,filter)
         
     
     async def hybrid_search(
         self,
         dense_vector: List[float],
-        sparse_vector: List[float],
-        collection_name: str, 
+        sparse_vector: List[float] = None,
+        collection_name: str = None, 
         output_fields: List[str] = ["text", "filename"],
         limit: int = 10, 
         offset: int = 0,
@@ -326,7 +337,7 @@ class MilvusVectorStore(VectorStoreBase):
         
         参数:
             dense_vector: 查询向量
-            sparse_vector: 查询稀疏向量
+            sparse_vector: 查询稀疏向量（可选，当use_sparse_vector=False时可以为None）
             collection_name: 目标集合名称，必须提供
             anns_field: 向量字段名，必须提供
             output_fields: 返回字段列表
@@ -342,6 +353,18 @@ class MilvusVectorStore(VectorStoreBase):
         
         if not await self.initialize(collection_name):
             raise ValueError(f"集合 {collection_name} 初始化失败，请检查集合是否存在")
+        
+        # 如果不使用稀疏向量或未提供稀疏向量，则只进行密集向量搜索
+        if not self.use_sparse_vector or sparse_vector is None:
+            return await self.vector_search(
+                dense_vector=dense_vector,
+                collection_name=collection_name,
+                anns_field="dense_vector",
+                output_fields=output_fields,
+                limit=limit,
+                offset=offset,
+                filter=filter
+            )
         
         dense_search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}
         sparse_search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}

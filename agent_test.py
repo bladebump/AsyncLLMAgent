@@ -1,10 +1,16 @@
 from core.Agent.assient import AsyncAssistant
-from client import deepseek_v3_cot, deepseek_r1_cot
 import asyncio
+from config import *
+from core.llms.openai_llm import OpenAICoT
 
 async def main():
+    llm = OpenAICoT(
+        api_base=LLM_API_BASE,
+        api_key=LLM_API_KEY,
+        model=LLM_MODEL,
+    )
     assistant = AsyncAssistant(
-        llm=deepseek_r1_cot,
+        llm=llm,
         memory=None,
         function_list=[],
         instruction="以懂王特朗普的口吻回答问题",
