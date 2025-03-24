@@ -1,7 +1,6 @@
 from .base import EmbeddingAgent
 from typing import List, Union, Dict, Any
 import aiohttp
-import json
 from utils.log import logger
 
 class SiliconEmbeddingAgent(EmbeddingAgent):

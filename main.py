@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from core.llms.openai_llm import OpenAICoT
 from core.embeddings.silicon_agent import SiliconEmbeddingAgent
+from core.vector.milvus import MilvusVectorStore
 from config import *
 from apis import all_routers
 
@@ -22,7 +23,15 @@ async def lifespan(app: FastAPI):
         api_key=EMBEDDING_API_KEY,
         model=EMBEDDING_MODEL,
     )
+    app.state.milvus_store = MilvusVectorStore(
+        uri=MILVUS_URI,
+        username=MILVUS_USERNAME,
+        password=MILVUS_PASSWORD,
+        dense_vector_dim=MILVUS_DENSE_VECTOR_DIM,
+        use_sparse_vector=MILVUS_USE_SPARSE_VECTOR
+    )
     yield
+    app.state.milvus_store.close()
 
 app = FastAPI(lifespan=lifespan)
 

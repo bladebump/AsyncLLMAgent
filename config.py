@@ -19,6 +19,13 @@ LLM_COT_API_BASE = "https://api.deepseek.com"
 # LLM_COT_API_BASE="https://api.siliconflow.cn/v1"
 
 # Embedding_settings
-EMBEDDING_MODEL = "bge-m3"
+EMBEDDING_MODEL = "Pro/BAAI/bge-m3"
 EMBEDDING_API_KEY = "sk-ikrvbgsuezjiomgtczsggqgwwuexjvaxksdabgkcknejbklg"
-EMBEDDING_API_BASE = "https://api.siliconflow.cn/v1"
+EMBEDDING_API_BASE = "https://api.siliconflow.cn/v1/embeddings"
+
+# Milvus_settings
+MILVUS_URI = "http://192.168.20.100:19530"
+MILVUS_USERNAME = ""
+MILVUS_PASSWORD = ""
+MILVUS_DENSE_VECTOR_DIM = 1024
+MILVUS_USE_SPARSE_VECTOR = False

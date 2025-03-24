@@ -1,4 +1,3 @@
-import uuid
 from typing import Any, Dict, List, Optional, Union, Type, Tuple, Literal
 from pymilvus import DataType, AsyncMilvusClient, MilvusClient, AnnSearchRequest, WeightedRanker
 from .base import VectorStoreBase, Document
@@ -29,12 +28,8 @@ class MilvusVectorStore(VectorStoreBase):
             uri: Milvus服务器地址
             username: 认证用户名
             password: 认证密码
-            dense_vector_field: 存储密集向量的字段名
-            sparse_vector_field: 存储稀疏向量的字段名
             dense_vector_dim: 密集向量维度
             use_sparse_vector: 是否使用稀疏向量字段
-            text_field: 存储文本内容的字段名
-            document_class: 文档类，用于生成集合字段
             **kwargs: 其他Milvus客户端参数
         """
         self.uri = uri
@@ -68,6 +63,7 @@ class MilvusVectorStore(VectorStoreBase):
             auto_id=True,
             description="Document集合结构配置",
         )
+        schema.add_field('id',DataType.INT64,is_primary=True)
         schema.add_field('text',DataType.VARCHAR,max_length=4000)
         schema.add_field('filename',DataType.VARCHAR,max_length=512)
         schema.add_field('department',DataType.INT64)
@@ -137,7 +133,23 @@ class MilvusVectorStore(VectorStoreBase):
             return True
         else:
             return False
+    
+    async def drop_collection(self, collection_name: str):
+        """
+        删除集合
+        参数:
+            collection_name: 要删除的集合名称
+        """
+        await self.Asyclient.drop_collection(collection_name=collection_name)
+    
+    async def get_all_collections(self) -> List[str]:
+        """
+        获取所有集合名称
         
+        返回:
+            List[str]: 所有集合名称列表
+        """
+        return self.client.list_collections()
     
     async def add(self, document: Document, collection_name: str) -> int:
         """
@@ -244,12 +256,11 @@ class MilvusVectorStore(VectorStoreBase):
     
     async def vector_search(
         self, 
-        dense_vector: List[float],
+        dense_vector: List[List[float]],
         collection_name: str, 
         anns_field: str,
-        output_fields: List[str] = ["text", "filename"],
+        output_fields: List[str] = ["text", "filename", "department"],
         limit: int = 10, 
-        offset: int = 0,
         filter: str = ""
     ) -> List[Document]:
         """
@@ -261,15 +272,11 @@ class MilvusVectorStore(VectorStoreBase):
             anns_field: 向量字段名，必须提供
             output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
             
         返回:
             匹配的文档列表，按相似度降序排列
         """
-        if not await self._check_collection_exists(collection_name):
-            raise ValueError(f"集合 {collection_name} 不存在，请先调用create_collection方法创建")
-        
         if not await self.initialize(collection_name):
             raise ValueError(f"集合 {collection_name} 初始化失败，请检查集合是否存在")
             
@@ -277,38 +284,39 @@ class MilvusVectorStore(VectorStoreBase):
         if anns_field == "sparse_vector" and not self.use_sparse_vector:
             raise ValueError("稀疏向量字段未启用，请使用dense_vector字段")
 
-        search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}
+        search_params = {
+            "metric_type": "IP",
+            "params": {"nprobe": 10}
+        }
         result = await self.Asyclient.search(
             collection_name=collection_name,
-            data=[dense_vector],
+            data=dense_vector,
             anns_field=anns_field,
-            param=search_params,
             limit=limit,
             filter=filter,
-            output_fields=output_fields
+            output_fields=output_fields,
+            search_params=search_params
         )
         return [Document.from_dict(hit['entity']) for hits in result for hit in hits]
     
     async def keyword_search(
         self, 
-        dense_vector: List[float],
+        sparse_vector: List[List[float]],
         collection_name: str, 
         anns_field: str = "sparse_vector",
-        output_fields: List[str] = ["text", "filename"],
+        output_fields: List[str] = ["text", "filename", "department"],
         limit: int = 10, 
-        offset: int = 0,
         filter: str = ""
     ) -> List[Document]:
         """
         关键词搜索
         
         参数:
-            dense_vector: 查询向量
+            sparse_vector: 查询向量
             collection_name: 目标集合名称，必须提供
             anns_field: 向量字段名，默认为sparse_vector
             output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
             
         返回:
@@ -317,17 +325,16 @@ class MilvusVectorStore(VectorStoreBase):
         if not self.use_sparse_vector and anns_field == "sparse_vector":
             raise ValueError("稀疏向量字段未启用，请使用dense_vector或其他字段")
             
-        return await self.vector_search(dense_vector,collection_name,anns_field,output_fields,limit,offset,filter)
+        return await self.vector_search(sparse_vector,collection_name,anns_field,output_fields,limit,filter)
         
     
     async def hybrid_search(
         self,
-        dense_vector: List[float],
-        sparse_vector: List[float] = None,
+        dense_vector: List[List[float]],
+        sparse_vector: List[List[float]] = None,
         collection_name: str = None, 
-        output_fields: List[str] = ["text", "filename"],
+        output_fields: List[str] = ["text", "filename", "department"],
         limit: int = 10, 
-        offset: int = 0,
         filter: str = "",
         dense_weight: float = 1.0,
         sparse_weight: float = 1.0
@@ -339,11 +346,11 @@ class MilvusVectorStore(VectorStoreBase):
             dense_vector: 查询向量
             sparse_vector: 查询稀疏向量（可选，当use_sparse_vector=False时可以为None）
             collection_name: 目标集合名称，必须提供
-            anns_field: 向量字段名，必须提供
             output_fields: 返回字段列表
             limit: 返回结果数量上限
-            offset: 结果偏移量，用于分页
             filter: 元数据过滤条件
+            dense_weight: 密集向量权重
+            sparse_weight: 稀疏向量权重
             
         返回:
             匹配的文档列表，按混合得分降序排列
@@ -362,21 +369,20 @@ class MilvusVectorStore(VectorStoreBase):
                 anns_field="dense_vector",
                 output_fields=output_fields,
                 limit=limit,
-                offset=offset,
                 filter=filter
             )
         
-        dense_search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}
-        sparse_search_params = {'metric_type': 'IP', 'params': {}, 'offset': offset}
+        dense_search_params = {'metric_type': 'IP'}
+        sparse_search_params = {'metric_type': 'IP'}
         dense_search_request = AnnSearchRequest(
-            data=[dense_vector],
+            data=dense_vector,
             anns_field="dense_vector",
             param=dense_search_params,
             limit=limit,
             expr=filter
         )
         sparse_search_request = AnnSearchRequest(
-            data=[sparse_vector],
+            data=sparse_vector,
             anns_field="sparse_vector",
             param=sparse_search_params,
             limit=limit,

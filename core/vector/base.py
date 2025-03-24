@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, TypeVar, Generic
-from dataclasses import dataclass, field
-
+from typing import Any, Dict, List, Optional, TypeVar, Generic
+from pydantic import BaseModel
 T = TypeVar('T')
 
-
-class DocumentBase:
+class DocumentBase(BaseModel):
     """
     向量文档基类，所有文档类型应继承此类
     """
@@ -32,8 +30,6 @@ class DocumentBase:
         """
         raise NotImplementedError("子类必须实现from_dict方法")
 
-
-@dataclass
 class Document(DocumentBase):
     """
     向量文档基类，表示一个存储在向量数据库中的文档
@@ -48,7 +44,7 @@ class Document(DocumentBase):
     """
     text: str
     dense_vector: List[float]
-    sparse_vector: List[float]
+    sparse_vector: Optional[List[float]] = None
     filename: str
     department: int
     
@@ -56,13 +52,15 @@ class Document(DocumentBase):
         """
         将文档转换为插入数据，用于插入到向量数据库中
         """
-        return {
+        data = {
             "text": self.text,
             "dense_vector": self.dense_vector,
-            "sparse_vector": self.sparse_vector,
             "filename": self.filename,
             "department": self.department,
         }
+        if self.sparse_vector:
+            data["sparse_vector"] = self.sparse_vector
+        return data
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -87,9 +85,9 @@ class Document(DocumentBase):
         # 提取特定字段
         text = data.pop("text", "")
         dense_vector = data.pop("dense_vector", [])
-        sparse_vector = data.pop("sparse_vector", [])
+        sparse_vector = data.pop("sparse_vector", None)
         filename = data.pop("filename", "")
-        department = data.pop("department", "")
+        department = data.pop("department", 0)
         # 构建Document对象
         return cls(
             text=text, 
