@@ -32,3 +32,7 @@ MILVUS_USE_SPARSE_VECTOR = False
 
 # 法律相关问答
 LAW_QA_THOULD = 0.5
+
+# chunck settings
+CHUNK_SIZE = 2000
+CHUNK_OVERLAP = 300
