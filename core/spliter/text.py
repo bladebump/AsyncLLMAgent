@@ -71,7 +71,7 @@ class RecursiveCharacterTextSplitter(TextSplitter):
     ) -> None:
         """Create a new TextSplitter."""
         super().__init__(keep_separator=keep_separator, **kwargs)
-        self._separators = separators or ["\n\n", "\n", " ", ""]
+        self._separators = separators or ["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""]
         self._is_separator_regex = is_separator_regex
 
     def _join_docs(self, docs: List[str], separator: str) -> Optional[str]:
@@ -117,6 +117,10 @@ class RecursiveCharacterTextSplitter(TextSplitter):
     
     def _split_text(self, text: str, separators: List[str]) -> List[str]:
         """Split incoming text and return chunks."""
+        # 确保text是字符串类型
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+            
         final_chunks = []
         # Get appropriate separator to use
         separator = separators[-1]
@@ -159,6 +163,6 @@ class RecursiveCharacterTextSplitter(TextSplitter):
         return self._split_text(text, self._separators)
     
 if __name__ == "__main__":
-    text = "我是一段待测试文本，看看效果如何"
-    split = RecursiveCharacterTextSplitter(chunk_size=10,chunk_overlap=5,separators=["\n\n", "\n", "。"," ", ""])
+    text = "我是一段待测试文本，看看效果如何。这是第二句话！这是第三句话？这是第四句话；最后一句话结束。"
+    split = RecursiveCharacterTextSplitter(chunk_size=15, chunk_overlap=5)
     print(split.split_text(text))

@@ -1,10 +1,8 @@
 from typing import List, Union, Tuple, AsyncIterator, Callable
 from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
-from utils.retry import retry
 from openai import AsyncOpenAI
 from core.openai_types import Message, MessageToolParam
-from core.util import function_to_json
 from config import LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT
 
 class OpenAICoT(AsyncBaseChatCOTModel):
@@ -64,7 +62,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             timeout=timeout,
             **kwargs
         )
-            
+
         return self._process_stream_response(response)
 
     async def _chat_no_stream(self, 

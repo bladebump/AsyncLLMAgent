@@ -64,7 +64,7 @@ class MilvusVectorStore(VectorStoreBase):
             description="Document集合结构配置",
         )
         schema.add_field('id',DataType.INT64,is_primary=True)
-        schema.add_field('text',DataType.VARCHAR,max_length=4000)
+        schema.add_field('text',DataType.VARCHAR,max_length=8000)
         schema.add_field('filename',DataType.VARCHAR,max_length=512)
         schema.add_field('department',DataType.INT64)
         schema.add_field('dense_vector',DataType.FLOAT_VECTOR,dim=self.dense_vector_dim)
@@ -158,8 +158,7 @@ class MilvusVectorStore(VectorStoreBase):
             document: 要添加的文档对象
             collection_name: 目标集合名称，必须提供
         返回:
-            如果文档ID由用户提供，成功返回True，否则返回False
-            如果文档ID自动生成，成功返回生成的ID，失败返回False
+            成功插入的文档数量
         """
         if not await self._check_collection_exists(collection_name):
             raise ValueError(f"集合 {collection_name} 不存在，请先调用create_collection方法创建")
@@ -168,23 +167,25 @@ class MilvusVectorStore(VectorStoreBase):
         result = await self.Asyclient.insert(collection_name=collection_name,data=data)
         return result['insert_count']
     
-    async def add_batch(self, documents: List[Document], collection_name: str) -> Union[bool, List[str]]:
+    async def add_batch(self, documents: List[Document], collection_name: str, batch_size: int = 1000) -> int:
         """
         批量添加文档
         参数:
             documents: 要添加的文档对象列表
             collection_name: 目标集合名称，必须提供
         返回:
-            如果所有文档ID都由用户提供，成功返回True，否则返回False
-            如果存在自动生成的ID，成功返回生成的ID列表，失败返回False
+            成功插入的文档数量
         """
-        # 检查集合是否存在
         if not await self._check_collection_exists(collection_name):
             raise ValueError(f"集合 {collection_name} 不存在，请先调用create_collection方法创建")
         
         data = [document.to_insert_data() for document in documents]
-        result = await self.Asyclient.insert(collection_name=collection_name,data=data)
-        return result['insert_count']
+        insert_count = 0
+        for i in range(0, len(data), batch_size):
+            batch_data = data[i:i+batch_size]
+            result = await self.Asyclient.insert(collection_name=collection_name,data=batch_data)
+            insert_count += result['insert_count']
+        return insert_count
     
     async def get(self, id: int, collection_name: str) -> Optional[Document]:
         """

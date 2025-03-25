@@ -115,23 +115,21 @@ class VectorStoreBase(Generic[T], ABC):
             collection_name: 集合/索引名称，如果未提供则使用默认值
             
         返回:
-            如果文档ID由用户提供，成功返回True，否则返回False
-            如果文档ID自动生成，成功返回生成的ID，失败返回False
+            成功插入的文档数量
         """
         pass
     
     @abstractmethod
-    async def add_batch(self, documents: List[Document], collection_name: str) -> Union[bool, List[str]]:
+    async def add_batch(self, documents: List[Document], collection_name: str, batch_size: int = 1000) -> int:
         """
         批量添加文档
         
         参数:
             documents: 要添加的文档对象列表
             collection_name: 集合/索引名称，如果未提供则使用默认值
-            
+            batch_size: 批量大小，如果未提供则使用默认值
         返回:
-            如果所有文档ID都由用户提供，成功返回True，否则返回False
-            如果存在自动生成的ID，成功返回生成的ID列表，失败返回False
+            成功插入的文档数量
         """
         pass
     

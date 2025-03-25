@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from .utils import *
 from core.vector.base import VectorStoreBase
 from core.embeddings.base import EmbeddingAgent
-from core.llms.base import AsyncBaseLLMModel
+from core.llms.base import AsyncBaseChatCOTModel
 from core.rags.law import LawRag
 import os
 import aiofiles
@@ -18,15 +18,17 @@ class lawqa(BaseModel):
     msg: str
     history: list = []
     collection_name: str | None = None
+    use_cot_model: bool = False
 
 @law_router.post("/lawqa")
-async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(get_milvus_store), text_embedder:EmbeddingAgent = Depends(get_embedding), deepseek_llm:AsyncBaseLLMModel = Depends(get_llm)):
+async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(get_milvus_store), text_embedder:EmbeddingAgent = Depends(get_embedding), llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     """法律相关问答"""
     async def generate():
         query = input.msg
         history = input.history
         collection_name = input.collection_name
         system_str = ""
+        use_cot_model = input.use_cot_model
 
         expert_contact_information = {}
 
@@ -35,7 +37,7 @@ async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(ge
         async with aiofiles.open(expert_path, 'r', encoding='utf-8') as f:
             expert_contact_information = json.loads(await f.read())
 
-        rag = LawRag(query=query,collection_name=collection_name,department=None,messages=history,text_embedder=text_embedder,milvus_client=milvus,llm=deepseek_llm)
+        rag = LawRag(query=query,collection_name=collection_name,department=None,messages=history,text_embedder=text_embedder,vector_store=milvus,llm=llm)
         docs = await rag.choose_doc_for_answer()
 
         doc_str = ""
@@ -53,11 +55,21 @@ async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(ge
             history.append({'role':"system", 'content':system_str})
         history.append({'role':"user", 'content':query_template})
 
-        async for resp in deepseek_llm.chat(messages=history,stream=True):
-            data = json.dumps({"answer":resp})
-            yield f"data: {data}\n\n"
+        all_thinking = ""
+        all_answer = ""
+        if use_cot_model:
+            async for thinking, resp in await cot_llm.chat(messages=history,stream=True):
+                all_thinking += thinking
+                all_answer += resp
+                data = json.dumps({"thinking":all_thinking,"answer":all_answer})
+                yield f"data: {data}\n\n"
+        else:
+            async for _, resp in await llm.chat(messages=history,stream=True):
+                all_answer += resp
+                data = json.dumps({"answer":all_answer})
+                yield f"data: {data}\n\n"
 
-        old_resp = resp
+        old_resp = all_answer
         expert_type = random.choice(['人民调解员','网格员'])
         expert = random.choice(expert_contact_information[expert_type])
         old_resp += f"\n基于以上情况，建议联系\n{expert_type}-{expert['姓名']},联系方式为{expert['联系方式']}"
@@ -67,7 +79,7 @@ async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(ge
         expert_type = random.choice(['律师','心理咨询师'])
         expert = random.choice(expert_contact_information[expert_type])
         old_resp += f"\n{expert['单位']}-{expert_type}-{expert['姓名']},联系方式为{expert['联系方式']}"
-        data = json.dumps({"answer":old_resp})
+        data = json.dumps({"thinking":all_thinking,"answer":old_resp})
         yield f"data: {data}\n\n"
         resp = old_resp
         history.pop()

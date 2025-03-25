@@ -6,7 +6,7 @@ from core.ranks.base import AsyncRankAgent
 import re
 from typing import List, Dict, Tuple, Any, Optional
 from utils.log import logger
-from config import top_k
+from config import RAG_TOP_K
 
 class BaseRag(ABC):
     """基础RAG类"""
@@ -40,7 +40,7 @@ class BaseRag(ABC):
         """
         raise NotImplementedError
     
-    async def choose_doc_for_answer(self, top_k: int = top_k) -> List[Document]:
+    async def choose_doc_for_answer(self, top_k: int = RAG_TOP_K) -> List[Document]:
         """选择文档作为答案
 
         Args:
@@ -90,10 +90,11 @@ class BaseRag(ABC):
             filter = {"department": self.department}
         
         docs = await self.vector_store.vector_search(
-            query_vector=query_embedding,
+            dense_vector=query_embedding,
             limit=50,
             filter=filter,
-            collection_name=self.collection_name
+            collection_name=self.collection_name,
+            anns_field="dense_vector"
         )
 
         # 按照text去重，保持文档的唯一性
