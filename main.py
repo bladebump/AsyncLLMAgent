@@ -5,6 +5,7 @@ from core.embeddings.silicon_agent import SiliconEmbeddingAgent
 from core.vector.milvus import MilvusVectorStore
 from config import *
 from apis import all_routers
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,6 +37,14 @@ async def lifespan(app: FastAPI):
     app.state.milvus_store.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 for router in all_routers:
     app.include_router(router)
