@@ -1,19 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, List, Union ,Tuple, Callable
+from typing import Dict, Iterator, List, Union ,Tuple
 from core.llms.base import AsyncBaseLLMModel
 from core.mem.base import AsyncMemory
-from core.util import function_to_json
-from core.openai_types import Message, Function
+from core.openai_types import Message, Function, MessageToolParam
 
 class AsyncAgent(ABC):
 
-    def __init__(self, function_list: List[Callable] | None = None, llm:AsyncBaseLLMModel = None, memory: AsyncMemory = None,
+    def __init__(self, tool_list: List[MessageToolParam] | None = None, llm:AsyncBaseLLMModel = None, memory: AsyncMemory = None,
                 name: str | None = None, instruction: Union[str, dict] = None, stream: bool = True, **kwargs):
         """
         初始化一个异步Agent
 
         Args:
-            function_list: 一个工具列表
+            tool_list: 一个工具列表
             llm: 这个Agent的LLM配置
             memory: 这个Agent的记忆
             name: 这个Agent的名称
@@ -24,7 +23,7 @@ class AsyncAgent(ABC):
         self.llm = llm
         self.memory = memory
         self.stream = stream
-        self.function_list = function_list
+        self.tool_list = tool_list
         self.name = name
         self.instruction = instruction
         self.function_map = {}
@@ -40,20 +39,13 @@ class AsyncAgent(ABC):
     async def _call_llm(self, prompt: str | None = None, messages: List[Message] | None = None, stop: List[str] | None = None, **kwargs) -> Union[Tuple[str, str], Iterator[Tuple[str, str]]]:
         return await self.llm.chat(prompt=prompt, messages=messages, stop=stop, stream=self.stream, **kwargs)
 
-    def _call_tool(self, tool_list: list[Function], **kwargs) -> list:
-        result_list = []
-        for tool in tool_list:
-            tool_name = tool.name
-            tool_args = tool.arguments
-            try:
-                result = self.function_map[tool_name].call(tool_args, **kwargs)
-                result_list.append(result)
-            except BaseException as e:
-                result = f'Tool api {tool_name} failed to call. Args: {tool_args}.'
-                result += f'Details: {str(e)[:200]}'
-        return result_list
+    async def _call_llm_with_tools(self, messages: List[Message], tools: List[MessageToolParam], **kwargs) -> Message:
+        return await self.llm.chat_with_tools(messages=messages, tools=tools, **kwargs)
 
-    def _detect_tool(self, message: Message) -> Tuple[bool, List[Function], str]:
+    async def _call_tool(self, tool_list: list[Function], **kwargs) -> list:
+        raise NotImplementedError
+
+    async def _detect_tool(self, message: Message) -> Tuple[bool, List[Function], str]:
         """
         内置工具调用检测
 
@@ -69,21 +61,9 @@ class AsyncAgent(ABC):
         """
 
         func_calls = []
-
-        # Follow OpenAI API, allow multi func_calls
         if message.tool_calls:
             for item in message.tool_calls:
                 func_call = item.function
                 func_calls.append(func_call)
-
         text = message.content or ''
-
         return (len(func_calls) > 0), func_calls, text
-
-    def _register_tool(self):
-        """
-        注册工具
-        """
-        for function in self.function_list:
-            function_json = function_to_json(function)
-            self.function_map[function_json['function']['name']] = function

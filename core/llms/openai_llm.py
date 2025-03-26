@@ -98,14 +98,14 @@ class OpenAICoT(AsyncBaseChatCOTModel):
         else:
             return self._support_fn_call
 
-    async def chat_with_functions(self, messages: List[Message], functions: List[MessageToolParam], **kwargs) -> Message:
+    async def chat_with_tools(self, messages: List[Message], tools: List[MessageToolParam], **kwargs) -> Message:
         """支持MCP工具调用的对话接口"""
         if not isinstance(messages[0], dict):
             messages = [item.model_dump() for item in messages]
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            tools=functions,
+            tools=tools,
             tool_choice='auto',
             **kwargs
         )

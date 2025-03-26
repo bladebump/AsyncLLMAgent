@@ -57,10 +57,10 @@ class AsyncBaseLLMModel(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    async def chat_with_functions(
+    async def chat_with_tools(
         self,
         messages: List[Message],
-        functions: List[MessageToolParam],
+        tools: List[MessageToolParam],
         **kwargs
     ) -> Message:
         raise NotImplementedError
