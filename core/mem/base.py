@@ -1,23 +1,27 @@
 from abc import ABC, abstractmethod
-from core.openai_types import Message
+from core.schema import Message
 from typing import List
 
 class AsyncMemory(ABC):
+    
+    def __init__(self, messages: List[Message] = [], max_length: int = 100):
+        self.Messages = messages
+        self.max_length = max_length
+
     @abstractmethod
-    async def add(self, message: List[Message]):
+    async def add(self, message: Message):
         pass
 
     @abstractmethod
-    async def search(self, query: str) -> str:
+    async def search(self, query: str) -> Message:
         pass
 
     @abstractmethod
     async def clear(self):
         pass
     
-    @abstractmethod
-    async def get_last_n_messages(self, n: int) -> str:
-        pass
+    async def get_last_n_messages(self, n: int) -> List[Message]:
+        return self.Messages[-n:]
 
     @abstractmethod
     async def save(self):
@@ -28,5 +32,8 @@ class AsyncMemory(ABC):
         pass
     
     @abstractmethod
-    async def _summary(self) -> str:
+    async def _summary(self) -> Message:
         pass
+
+    def __len__(self):
+        return len(self.Messages)

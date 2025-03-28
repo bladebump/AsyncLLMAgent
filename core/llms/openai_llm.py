@@ -2,7 +2,7 @@ from typing import List, Union, Tuple, AsyncIterator, Callable
 from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
 from openai import AsyncOpenAI
-from core.openai_types import Message, MessageToolParam
+from core.schema import Message
 from config import LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT
 
 class OpenAICoT(AsyncBaseChatCOTModel):
@@ -44,7 +44,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             yield ("", buffer_content)
 
     async def _chat_stream(self, 
-                    messages: List[Message], 
+                    messages: List[ dict], 
                     stop: List[str] | None = None,
                     **kwargs) -> AsyncIterator[Tuple[str, str]]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: True | Messages: {messages}')
@@ -66,7 +66,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
         return self._process_stream_response(response)
 
     async def _chat_no_stream(self, 
-                       messages: List[Message], 
+                       messages: List[dict], 
                        stop: List[str] | None = None,
                        **kwargs) -> Tuple[str, str]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: False | Messages: {messages}')
@@ -91,17 +91,10 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             message.content
         )
 
-    async def support_function_calling(self):
-        """检查模型是否支持函数调用"""
-        if self._support_fn_call is None:
-            return await super().support_function_calling()
-        else:
-            return self._support_fn_call
-
-    async def chat_with_tools(self, messages: List[Message], tools: List[MessageToolParam], **kwargs) -> Message:
+    async def chat_with_tools(self, messages: List[Union[Message, dict]], tools: List[dict] | None = None, **kwargs) -> Message:
         """支持MCP工具调用的对话接口"""
         if not isinstance(messages[0], dict):
-            messages = [item.model_dump() for item in messages]
+            messages = self.format_messages(messages)
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
