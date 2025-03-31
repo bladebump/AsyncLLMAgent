@@ -181,21 +181,12 @@ class ToolCallAgent(ReActAgent):
                 # 存储base64_image以供稍后在tool_message中使用
                 self._current_base64_image = result.base64_image
 
-                # 格式化结果以供显示
-                observation = (
-                    f"执行命令 `{name}` 的观察结果:\n{str(result)}"
-                    if result
-                    else f"命令 `{name}` 完成但没有输出"
-                )
-                return observation
-
-            # 格式化结果以供显示（标准情况）
+            # 格式化结果以供显示
             observation = (
                 f"执行命令 `{name}` 的观察结果:\n{str(result)}"
                 if result
                 else f"命令 `{name}` 完成但没有输出"
             )
-
             return observation
         except json.JSONDecodeError:
             error_msg = f"错误: 解析参数 {name}: 无效的JSON格式"
