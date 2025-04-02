@@ -1,9 +1,10 @@
 from core.Agent.toolcall import ToolCallAgent
 import asyncio
 from config import *
-from core.llms.openai_llm import OpenAICoT
+from core.llms import OpenAICoT
 from core.tools import GetWeather
 from core.mem import ListMemory
+from core.schema import AgentDone
 
 async def main():
     llm = OpenAICoT(
@@ -18,8 +19,13 @@ async def main():
         memory=ListMemory(),
     )
     assistant.available_tools.add_tool(GetWeather())
-    response = await assistant.run("杭州的天气怎么样？")
-    print(response)
+    queue = await assistant.run_stream("杭州的天气怎么样？")
+    
+    while True:
+        chunk = await queue.get()
+        if isinstance(chunk, AgentDone):
+            break
+        print(chunk)
     
 if __name__ == "__main__":
     asyncio.run(main())
