@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
         use_sparse_vector=MILVUS_USE_SPARSE_VECTOR
     )
     yield
-    app.state.milvus_store.close()
+    await app.state.milvus_store.close()
 
 app = FastAPI(lifespan=lifespan)
 
