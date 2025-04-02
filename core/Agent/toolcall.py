@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 from pydantic import Field
 from core.Agent.react import ReActAgent
 from utils.log import logger
-from core.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice
+from core.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice, Role
 from core.tools import CreateChatCompletion, Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
 
@@ -37,29 +37,24 @@ class ToolCallAgent(ReActAgent):
 
     async def think(self) -> bool:
         """处理当前状态并决定下一步操作使用工具"""
+        if len(self.memory) == 0 and self.system_prompt:
+            await self.memory.add_system(Message.system_message(self.system_prompt))
+
         if self.next_step_prompt:
-            user_msg = Message.user_message(self.next_step_prompt)
-            self.messages += [user_msg]
+            await self.memory.add(Message.user_message(self.next_step_prompt))
 
         try:
             # 获取带有工具选项的响应
             response = await self.llm.chat_with_tools(
-                messages=self.messages,
-                system_msgs=(
-                    [Message.system_message(self.system_prompt)]
-                    if self.system_prompt
-                    else None
-                ),
+                messages=self.memory.Messages,
                 tools=self.available_tools.to_params(),
                 tool_choice=self.tool_choices,
             )
         except TokenLimitExceeded as e:
             logger.error(f"🚨 令牌限制错误: {e}")
-            self.memory.add(
-                Message.assistant_message(
-                    f"达到最大令牌限制，无法继续执行: {str(e)}"
-                )
-            )
+            await self.memory.add(Message.assistant_message(
+                f"达到最大令牌限制，无法继续执行: {str(e)}"
+            ))
             self.state = AgentState.FINISHED
             return False
         except Exception as e:
@@ -92,7 +87,7 @@ class ToolCallAgent(ReActAgent):
                         f"🤔 嗯，{self.name} 尝试使用工具，但它们不可用！"
                     )
                 if content:
-                    self.memory.add_message(Message.assistant_message(content))
+                    await self.memory.add(Message.assistant_message(content))
                     return True
                 return False
 
@@ -102,7 +97,7 @@ class ToolCallAgent(ReActAgent):
                 if self.tool_calls
                 else Message.assistant_message(content)
             )
-            self.memory.add_message(assistant_msg)
+            await self.memory.add(assistant_msg)
 
             if self.tool_choices == ToolChoice.REQUIRED and not self.tool_calls:
                 return True  # 将在act()中处理
@@ -114,11 +109,9 @@ class ToolCallAgent(ReActAgent):
             return bool(self.tool_calls)
         except Exception as e:
             logger.error(f"🚨 嗯，{self.name} 的思考过程遇到了问题: {e}")
-            self.memory.add_message(
-                Message.assistant_message(
-                    f"处理时遇到错误: {str(e)}"
-                )
-            )
+            await self.memory.add(Message.assistant_message(
+                f"处理时遇到错误: {str(e)}"
+            ))
             return False
 
     async def act(self) -> str:
@@ -128,7 +121,7 @@ class ToolCallAgent(ReActAgent):
                 raise ValueError(TOOL_CALL_REQUIRED)
 
             # 如果没有任何命令，返回最后一条消息的内容
-            return self.messages[-1].content or "没有内容或命令要执行"
+            return self.memory.get_last_n_messages(1)[0].content or "没有内容或命令要执行"
 
         results = []
         for command in self.tool_calls:
@@ -151,7 +144,7 @@ class ToolCallAgent(ReActAgent):
                 name=command.function.name,
                 base64_image=self._current_base64_image,
             )
-            self.memory.add_message(tool_msg)
+            await self.memory.add(tool_msg)
             results.append(result)
 
         return "\n\n".join(results)

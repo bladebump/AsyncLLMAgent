@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional
 import asyncio
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
-from core.schema import ROLE_TYPE, AgentState, AgentDone, Message, AgentResult
+from core.schema import AgentState, AgentDone, Message, AgentResult
 from core.mem import AsyncMemory
 
 
@@ -69,38 +69,6 @@ class BaseAgent(BaseModel, ABC):
         finally:
             self.state = previous_state  # 恢复到之前的状态
 
-    async def update_memory(
-        self,
-        role: ROLE_TYPE,  # type: ignore
-        content: str,
-        base64_image: Optional[str] = None,
-        **kwargs,
-    ) -> None:
-        """将消息添加到代理的内存中。
-
-        Args:
-            role: 消息发送者的角色（用户、系统、助手、工具）。
-            content: 消息内容。
-            base64_image: 可选的base64编码图像。
-            **kwargs: 其他参数（例如工具调用ID用于工具消息）。
-
-        Raises:
-            ValueError: 如果role不支持。
-        """
-        message_map = {
-            "user": Message.user_message,
-            "system": Message.system_message,
-            "assistant": Message.assistant_message,
-            "tool": lambda content, **kw: Message.tool_message(content, **kw),
-        }
-
-        if role not in message_map:
-            raise ValueError(f"不支持的消息角色: {role}")
-
-        # 根据角色创建消息，使用适当的参数
-        kwargs = {"base64_image": base64_image, **(kwargs if role == "tool" else {})}
-        await self.memory.add(message_map[role](content, **kwargs))
-
     async def run(self, request: Optional[str] = None) -> AgentResult:
         """异步执行代理的主循环。
 
@@ -117,7 +85,7 @@ class BaseAgent(BaseModel, ABC):
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
         if request:
-            await self.update_memory("user", request)
+            await self.memory.add(Message.user_message(request))
 
         results: List[str] = []
         async with self.state_context(AgentState.RUNNING):
@@ -159,7 +127,7 @@ class BaseAgent(BaseModel, ABC):
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
         if request:
-            await self.update_memory("user", request)
+            await self.memory.add(Message.user_message(request))
 
         # 在后台任务中执行，避免阻塞
         asyncio.create_task(self._run_and_fill_queue(result_queue))
@@ -219,13 +187,3 @@ class BaseAgent(BaseModel, ABC):
         )
 
         return duplicate_count >= self.duplicate_threshold
-
-    @property
-    async def messages(self) -> List[Message]:
-        """从代理的内存中检索消息列表。"""
-        return self.memory.Messages
-
-    @messages.setter
-    async def messages(self, value: List[Message]):
-        """设置代理的内存中的消息列表。"""
-        self.memory.Messages = value

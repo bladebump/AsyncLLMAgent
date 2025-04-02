@@ -4,7 +4,7 @@ from typing import List
 
 class AsyncMemory(ABC):
     
-    def __init__(self, messages: List[Message] = [], max_length: int = 100):
+    def __init__(self, messages: List[Message] = [], max_length: int = 20):
         self.Messages = messages
         self.max_length = max_length
 
@@ -13,7 +13,11 @@ class AsyncMemory(ABC):
         pass
 
     @abstractmethod
-    async def search(self, query: str) -> Message:
+    async def add_system(self, message: Message):
+        pass
+
+    @abstractmethod
+    async def search(self, query: str) -> List[Message]:
         pass
 
     @abstractmethod
@@ -29,10 +33,6 @@ class AsyncMemory(ABC):
 
     @abstractmethod
     async def load(self):
-        pass
-    
-    @abstractmethod
-    async def _summary(self) -> Message:
         pass
 
     def __len__(self):
