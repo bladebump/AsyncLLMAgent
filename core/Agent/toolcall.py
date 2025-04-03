@@ -8,7 +8,7 @@ from core.tools import CreateChatCompletion, Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
 
 TOOL_CALL_REQUIRED = "需要工具调用但未提供"
-SYSTEM_PROMPT = "你是一个可以执行工具调用的代理"
+SYSTEM_PROMPT = "你是一个可以执行工具调用的代理, 请根据用户的需求选择合适的工具, 并使用工具调用执行任务。你可以反复使用工具调用直到任务完成。"
 NEXT_STEP_PROMPT = (
     "如果你想停止交互，请使用`terminate`工具/函数调用。"
 )
@@ -37,7 +37,7 @@ class ToolCallAgent(ReActAgent):
 
     async def think(self) -> bool:
         """处理当前状态并决定下一步操作使用工具"""
-        if len(self.memory) == 0 and self.system_prompt:
+        if not await self.memory.has_system() and self.system_prompt:
             await self.memory.add_system(Message.system_message(self.system_prompt))
 
         if self.next_step_prompt:

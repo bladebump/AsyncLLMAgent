@@ -18,6 +18,9 @@ class ListMemory(AsyncMemory):
             self.Messages.insert(0, message)
         if len(self.Messages) > self.max_length:
             self.Messages.pop(1)
+        
+    async def has_system(self) -> bool:
+        return self.Messages[0].role == Role.SYSTEM
 
     async def search(self, query: str) -> List[Message]:
         return self.Messages

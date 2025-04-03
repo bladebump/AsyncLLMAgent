@@ -124,6 +124,7 @@ class BaseAgent(BaseModel, ABC):
         result_queue = asyncio.Queue()
         
         if self.state != AgentState.IDLE:
+            result_queue.put(AgentDone(reason="代理状态错误"))
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
         if request:

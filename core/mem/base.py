@@ -17,6 +17,10 @@ class AsyncMemory(ABC):
         pass
 
     @abstractmethod
+    async def has_system(self) -> bool:
+        pass
+
+    @abstractmethod
     async def search(self, query: str) -> List[Message]:
         pass
 

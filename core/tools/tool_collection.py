@@ -1,7 +1,7 @@
 """用于管理多个工具的集合类。"""
 from typing import Any, Dict, List
 
-from core.tools.error import ToolError
+from core.tools.errors import ToolError
 from core.tools.base import BaseTool, ToolFailure, ToolResult
 
 

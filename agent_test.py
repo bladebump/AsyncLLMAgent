@@ -2,7 +2,7 @@ from core.Agent.toolcall import ToolCallAgent
 import asyncio
 from config import *
 from core.llms import OpenAICoT
-from core.tools import GetWeather
+from core.tools import PowerShell
 from core.mem import ListMemory
 from core.schema import AgentDone
 
@@ -13,13 +13,13 @@ async def main():
         model=LLM_MODEL,
     )
     assistant = ToolCallAgent(
-        name="天气助手",
-        description="一个可以获取天气信息的助手",
+        name="命令行助手",
+        description="一个可以执行命令行命令的助手",
         llm=llm,
         memory=ListMemory(),
     )
-    assistant.available_tools.add_tool(GetWeather())
-    queue = await assistant.run_stream("杭州的天气怎么样？")
+    assistant.available_tools.add_tool(PowerShell())
+    queue = await assistant.run_stream("查看一下我这周的git提交记录，并总结成周报")
     
     while True:
         chunk = await queue.get()
@@ -28,4 +28,6 @@ async def main():
         print(chunk)
     
 if __name__ == "__main__":
-    asyncio.run(main())
+    powershell = PowerShell()
+    asyncio.run(powershell.execute("Get-ChildItem"))
+    # asyncio.run(main())
