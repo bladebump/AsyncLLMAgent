@@ -7,27 +7,26 @@ import base64
 
 event_router = APIRouter(prefix="/event")
 
-class Event(BaseModel):
-    session_id: str
+class Frame(BaseModel):
     timestamp: int
     data: str # base64编码的内容
 
 class EventPost(BaseModel):
-    event_list: list[Event]
+    frame_list: list[Frame]
     use_cot_model: bool = False
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
-    event_list = []
-    for event in events.event_list:
-        event_list.append({
-            "session_id": event.session_id,
-            "timestamp": event.timestamp,
-            "data": base64.b64decode(event.data).decode("utf-8")
+    frame_list = []
+    for frame in events.frame_list:
+        frame_list.append({
+            "session_id": frame.session_id,
+            "timestamp": frame.timestamp,
+            "data": base64.b64decode(frame.data).decode("utf-8")
         })
     prompt = f"""
 # 事件内容
-{event_list}
+{frame_list}
 
 # 指令
 以上是捕获到的tty log，请分析出用户做了什么操作,输出格式如下，使用json格式
