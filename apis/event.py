@@ -48,6 +48,6 @@ async def event_analysis(event: EventPost, llm:AsyncBaseChatCOTModel = Depends(g
     _, resp = await use_llm.chat(prompt=prompt, stream=False)
     
     try:
-        return parse_markdown_json(resp)
+        return {"code": 200, "error": "", "data": parse_markdown_json(resp)}
     except json.JSONDecodeError:
-        return {"error": "解析失败", "raw_resp": resp}
+        return {"code": 500, "error": "json解析失败", "data": []}
