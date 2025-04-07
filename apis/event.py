@@ -47,4 +47,4 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
     try:
         return {"code": 200, "error": "", "data": parse_markdown_json(resp)}
     except json.JSONDecodeError:
-        return {"code": 500, "error": "json解析失败", "data": []}
+        return {"code": 500, "error": f"json解析失败\n{resp}", "data": []}
