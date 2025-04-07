@@ -1,5 +1,6 @@
 from fastapi import Request
 import json
+
 def get_llm(request: Request):
     return request.app.state.llm
 
@@ -12,7 +13,7 @@ def get_embedding(request: Request):
 def get_milvus_store(request: Request):
     return request.app.state.milvus_store
 
-def parse_markdown_json(text: str) -> dict:
+def parse_markdown_json(text: str) -> any:
     """解析可能被markdown代码块包裹的JSON字符串
     
     Args:

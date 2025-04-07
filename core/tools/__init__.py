@@ -5,5 +5,6 @@ from .create_chat_completion import CreateChatCompletion
 from .get_weather import GetWeather
 from .powershell import PowerShell
 from .bash import Bash
+from .planning import PlanningTool
 
-__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "CreateChatCompletion", "GetWeather", "PowerShell", "Bash"]
+__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "CreateChatCompletion", "GetWeather", "PowerShell", "Bash", "PlanningTool"]

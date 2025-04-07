@@ -17,9 +17,9 @@ class EventPost(BaseModel):
     use_cot_model: bool = False
 
 @event_router.post("/event_analysis")
-async def event_analysis(event: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     event_list = []
-    for event in event.event_list:
+    for event in events.event_list:
         event_list.append({
             "session_id": event.session_id,
             "timestamp": event.timestamp,
@@ -44,7 +44,7 @@ async def event_analysis(event: EventPost, llm:AsyncBaseChatCOTModel = Depends(g
     "event_end": "操作结束的时间戳"
 }}]
 """
-    use_llm = cot_llm if event.use_cot_model else llm
+    use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False)
     
     try:
