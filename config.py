@@ -10,6 +10,12 @@ LLM_API_BASE = "https://api.deepseek.com"
 # LLM_MODEL="Pro/deepseek-ai/DeepSeek-V3"
 # LLM_API_KEY="sk-ikrvbgsuezjiomgtczsggqgwwuexjvaxksdabgkcknejbklg"
 # LLM_API_BASE="https://api.siliconflow.cn/v1"
+# LLM_MODEL = "gpt-4o"
+# LLM_API_KEY = "sk-uXjwqLuFHi9NmUsF3X3jfxj5SLFsc42SfVm0xEIWf9okyI7Q"
+# LLM_API_BASE = "https://api.chatanywhere.tech/v1"
+# LLM_MODEL = "qwen-max"
+# LLM_API_KEY = "sk-af5fbecb9b1040ac89578c90e518bd53"
+# LLM_API_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 # LLM_COT_settings
 LLM_COT_MODEL = "deepseek-reasoner"
