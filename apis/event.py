@@ -20,7 +20,6 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
     frame_list = []
     for frame in events.frame_list:
         frame_list.append({
-            "session_id": frame.session_id,
             "timestamp": frame.timestamp,
             "data": base64.b64decode(frame.data).decode("utf-8")
         })
@@ -33,7 +32,6 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 
 # 输出格式
 [{{
-    "seesion_id": "会话id",
     "event_name": "用户做了什么操作",
     "event_input": "用户操作",
     "event_output": "用户操作的输出，输出比较短的时候，给出完整输出，输出比较长的时候，给出输出总结",
