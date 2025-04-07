@@ -4,3 +4,4 @@ openai
 pymilvus
 aiohttp
 python-multipart
+json5
