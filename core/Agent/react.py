@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from core.Agent.base import BaseAgent
+from core.agent.base import BaseAgent
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
 from core.schema import AgentState

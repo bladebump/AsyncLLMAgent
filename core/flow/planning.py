@@ -396,7 +396,7 @@ class PlanningFlow(BaseFlow):
                 f"计划已完成。以下是最终计划状态:\n\n{plan_text}\n\n请提供已完成的内容总结和任何最终想法。"
             )
 
-            response = await self.llm.chat(
+            thinking, response = await self.llm.chat(
                 messages=[system_message, user_message],
                 stream=False,
             )
