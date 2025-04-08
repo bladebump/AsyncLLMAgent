@@ -3,6 +3,24 @@ from typing import Dict, Any
 import yaml
 from pathlib import Path
 
+class ConfigDict:
+    def __init__(self, data: Dict[str, Any]):
+        self._data = data
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._data:
+            value = self._data[name]
+            if isinstance(value, dict):
+                return ConfigDict(value)
+            return value
+        raise AttributeError(f"'ConfigDict' object has no attribute '{name}'")
+    
+    def __getitem__(self, key: str) -> Any:
+        return self.__getattr__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+    
 class Config:
     _instance = None
     _config: Dict[str, Any] = {}
@@ -39,19 +57,7 @@ class Config:
             return value
         raise AttributeError(f"'Config' object has no attribute '{name}'")
 
-class ConfigDict:
-    def __init__(self, data: Dict[str, Any]):
-        self._data = data
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self._data:
-            value = self._data[name]
-            if isinstance(value, dict):
-                return ConfigDict(value)
-            return value
-        raise AttributeError(f"'ConfigDict' object has no attribute '{name}'")
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._data.get(key, default)
+    def __getitem__(self, key: str) -> Any:
+        return self.__getattr__(key)
 
 config = Config() 

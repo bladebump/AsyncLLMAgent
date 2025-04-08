@@ -9,10 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    llm_provider = config.current_provider
+    llm_config = config.llm_providers[llm_provider]
     app.state.llm = OpenAICoT(
-        api_base=config.llm.api_base,
-        api_key=config.llm.api_key,
-        model=config.llm.model,
+        api_base=llm_config.api_base,
+        api_key=llm_config.api_key,
+        model=llm_config.model,
         support_fn_call=True
     )
     app.state.llm_cot = OpenAICoT(
