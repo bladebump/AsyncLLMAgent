@@ -1,6 +1,6 @@
 from core.agent.toolcall import ToolCallAgent
 import asyncio
-from config import *
+from core.config import config
 from core.llms import OpenAICoT
 from core.tools import PowerShell
 from core.mem import ListMemory
@@ -8,9 +8,9 @@ from core.schema import AgentDone
 
 async def main():
     llm = OpenAICoT(
-        api_base=LLM_API_BASE,
-        api_key=LLM_API_KEY,
-        model=LLM_MODEL,
+        api_base=config.llm.api_base,
+        api_key=config.llm.api_key,
+        model=config.llm.model,
     )
     assistant = ToolCallAgent(
         name="命令行助手",

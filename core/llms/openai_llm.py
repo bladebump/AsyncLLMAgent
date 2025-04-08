@@ -3,7 +3,7 @@ from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
 from openai import AsyncOpenAI
 from core.schema import Message, TOOL_CHOICE_TYPE, ToolChoice
-from config import LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT
+from core.config import config
 
 class OpenAICoT(AsyncBaseChatCOTModel):
     """支持链式思考的OpenAI模型实现，集成了原OpenAi类的功能"""
@@ -49,9 +49,9 @@ class OpenAICoT(AsyncBaseChatCOTModel):
                     **kwargs) -> AsyncIterator[Tuple[str, str]]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: True | Messages: {messages}')
         
-        temperature = kwargs.pop('temperature', LLM_TEMPERATURE)
-        max_tokens = kwargs.pop('max_tokens', LLM_MAX_TOKENS)
-        timeout = kwargs.pop('timeout', LLM_TIMEOUT)
+        temperature = kwargs.pop('temperature', config.model.temperature)
+        max_tokens = kwargs.pop('max_tokens', config.model.max_tokens)
+        timeout = kwargs.pop('timeout', config.model.timeout)
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -71,9 +71,9 @@ class OpenAICoT(AsyncBaseChatCOTModel):
                        **kwargs) -> Tuple[str, str]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: False | Messages: {messages}')
         
-        temperature = kwargs.pop('temperature', LLM_TEMPERATURE)
-        max_tokens = kwargs.pop('max_tokens', LLM_MAX_TOKENS)
-        timeout = kwargs.pop('timeout', LLM_TIMEOUT)
+        temperature = kwargs.pop('temperature', config.model.temperature)
+        max_tokens = kwargs.pop('max_tokens', config.model.max_tokens)
+        timeout = kwargs.pop('timeout', config.model.timeout)
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,

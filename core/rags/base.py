@@ -6,7 +6,7 @@ from core.ranks.base import AsyncRankAgent
 import re
 from typing import List, Dict, Tuple, Any, Optional
 from utils.log import logger
-from config import RAG_TOP_K
+from core.config import config
 
 class BaseRag(ABC):
     """基础RAG类"""
@@ -40,7 +40,7 @@ class BaseRag(ABC):
         """
         raise NotImplementedError
     
-    async def choose_doc_for_answer(self, top_k: int = RAG_TOP_K) -> List[Document]:
+    async def choose_doc_for_answer(self, top_k: int = config.rag.top_k) -> List[Document]:
         """选择文档作为答案
 
         Args:

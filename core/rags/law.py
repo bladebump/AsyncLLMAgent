@@ -1,5 +1,5 @@
 from core.rags.base import BaseRag
-from config import LAW_QA_THOULD
+from core.config import config
 
 class LawRag(BaseRag):
     """问答场景下的召回"""
@@ -17,4 +17,4 @@ class LawRag(BaseRag):
         query_list = [query for query in query_list if (query != "") and (len(query) >= 1)]
         query_list.append(self.query)
         
-        return await self.search_vector(query_list,LAW_QA_THOULD)
+        return await self.search_vector(query_list,config.law_qa.threshold)

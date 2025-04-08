@@ -5,3 +5,4 @@ pymilvus
 aiohttp
 python-multipart
 json5
+pyyaml

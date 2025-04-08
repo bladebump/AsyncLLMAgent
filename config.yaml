@@ -1,0 +1,44 @@
+# 模型参数
+model:
+  temperature: 0.1
+  max_tokens: 4096
+  timeout: 600
+
+# LLM 设置
+llm:
+  model: "deepseek-chat"
+  api_key: "sk-d6aaf51c1f954197b377b023551c700a"
+  api_base: "https://api.deepseek.com"
+
+# CoT LLM 设置
+llm_cot:
+  model: "deepseek-reasoner"
+  api_key: "sk-d6aaf51c1f954197b377b023551c700a"
+  api_base: "https://api.deepseek.com"
+
+# Embedding 设置
+embedding:
+  model: "Pro/BAAI/bge-m3"
+  api_key: "sk-ikrvbgsuezjiomgtczsggqgwwuexjvaxksdabgkcknejbklg"
+  api_base: "https://api.siliconflow.cn/v1/embeddings"
+
+# Milvus 设置
+milvus:
+  uri: "http://192.170.1.190:19530"
+  username: ""
+  password: ""
+  dense_vector_dim: 1024
+  use_sparse_vector: false
+
+# 法律相关问答
+law_qa:
+  threshold: 0.5
+
+# 文本分块设置
+chunk:
+  size: 2000
+  overlap: 300
+
+# RAG 参数
+rag:
+  top_k: 5 

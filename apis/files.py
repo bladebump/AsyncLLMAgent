@@ -5,7 +5,7 @@ from core.embeddings.base import EmbeddingAgent
 from pydantic import BaseModel
 from core.vector.base import Document
 from core.spliter.text import RecursiveCharacterTextSplitter
-from config import CHUNK_SIZE, CHUNK_OVERLAP
+from core.config import config
 
 files_router = APIRouter(prefix="/files")
 
@@ -35,7 +35,7 @@ async def upload_file(file: UploadFile = File(...),
     filename = file.filename
     doc_list = []
     
-    splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=config.chunk.size, chunk_overlap=config.chunk.overlap)
     text_list = splitter.split_text(content)
     
     for text in text_list:
