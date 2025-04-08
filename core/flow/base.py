@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 from pydantic import BaseModel
-from core.agent.base import BaseAgent
+from core.agent import BaseAgent
 
 class BaseFlow(BaseModel, ABC):
     """支持多个代理的执行流程基类"""
