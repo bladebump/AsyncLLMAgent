@@ -16,7 +16,7 @@ async def main():
         llm=llm,
         memory=ListMemory(),
     )
-    agent.available_tools.add(Bash())
+    agent.available_tools.add_tool(Bash())
     flow = PlanningFlow(
         llm=llm,
         agents=[agent]

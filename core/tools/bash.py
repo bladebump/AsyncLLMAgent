@@ -45,7 +45,7 @@ class Bash(BaseTool):
         "required": ["command"],
     }
 
-    _session: Optional[_BashSession] = None
+    _session: _BashSession = _BashSession()
 
     async def execute(
         self, command: str | None = None, **kwargs
