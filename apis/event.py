@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-import json
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json
 import base64
@@ -63,12 +62,13 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 3. 注意识别特殊场景，如交互式程序、编辑模式等
 4. 输出的值使用中文
 5. 事件必须和用户输入的命令或操作对应，没有相应的输入，则不输出event
-6. 输出只包含json，不要包含其他内容
+6. 如果没有相应的event，则输出[]
+7. 输出格式必须符合json格式，不要包含其他内容
 """
     use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
     
     try:
         return {"code": 200, "error": "", "data": parse_markdown_json(resp)}
-    except json.JSONDecodeError:
-        return {"code": 500, "error": f"json解析失败\n{resp}", "data": []}
+    except Exception as e:
+        return {"code": 500, "error": f"json解析失败\n{resp}\n错误信息: {str(e)}", "data": []}

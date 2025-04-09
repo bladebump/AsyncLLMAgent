@@ -1,5 +1,6 @@
 from fastapi import Request
 import json5
+import json
 
 def get_llm(request: Request):
     return request.app.state.llm
@@ -28,6 +29,8 @@ def parse_markdown_json(text: str) -> any:
     # 移除markdown代码块
     if text.startswith("```json"):
         text = text[7:]
+    if text.startswith("```"):
+        text = text[3:]
     if text.endswith("```"):
         text = text[:-3]
     return json5.loads(text.strip())
