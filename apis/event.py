@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json
 from events.parse import MergeParser, Frame
+from utils.log import logger
 
 event_router = APIRouter(prefix="/event")
 
@@ -12,7 +13,9 @@ class EventPost(BaseModel):
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+    logger.debug(f"frame_list: {events.frame_list}")
     frame_list = MergeParser(events.frame_list).parse()
+    logger.debug(f"Parse frame_list: {frame_list}")
     frame_content = "\n".join([f"timestamp: {frame['timestamp']} data: {frame['data']}" for frame in frame_list])
     prompt = f"""
 # 任务说明
