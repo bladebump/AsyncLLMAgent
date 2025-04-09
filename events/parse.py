@@ -21,10 +21,13 @@ class FrameParser:
         return frame_list
 
 class MergeParser(FrameParser):
-    in_merge: bool = False
-    merge_buffer: list[Frame] = []
-    front_frame: Frame | None = None
-    merge_buffer_cursor: int = 0
+
+    def __init__(self, frame_list: list[Frame]):
+        super().__init__(frame_list)
+        self.in_merge: bool = False
+        self.merge_buffer: list[Frame] = []
+        self.front_frame: Frame | None = None
+        self.merge_buffer_cursor: int = 0
 
     def handle_special_key(self, key_data: str):
         if b'\x7f'.decode() in key_data:  # 退格键
