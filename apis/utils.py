@@ -1,6 +1,7 @@
 from fastapi import Request
 import json5
 import json
+import re
 
 def get_llm(request: Request):
     return request.app.state.llm
@@ -26,11 +27,7 @@ def parse_markdown_json(text: str) -> any:
     Raises:
         json.JSONDecodeError: 当JSON解析失败时
     """
-    # 移除markdown代码块
-    if text.startswith("```json"):
-        text = text[7:]
-    if text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
+    match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
+    if match:
+        text = match.group(1).strip()
     return json5.loads(text.strip())
