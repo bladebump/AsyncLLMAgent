@@ -3,12 +3,9 @@ from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json
 import base64
+from events.parse import FrameParser, Frame
 
 event_router = APIRouter(prefix="/event")
-
-class Frame(BaseModel):
-    timestamp: int
-    data: str # base64编码的内容
 
 class EventPost(BaseModel):
     frame_list: list[Frame]
@@ -16,12 +13,7 @@ class EventPost(BaseModel):
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
-    frame_list = []
-    for frame in events.frame_list:
-        frame_list.append({
-            "timestamp": frame.timestamp,
-            "data": base64.b64decode(frame.data).decode("utf-8")
-        })
+    frame_list = FrameParser(events.frame_list).parse()
     prompt = f"""
 # 任务说明
 你是一个专业的终端操作分析专家。你的任务是从连续的终端日志中识别和分析用户的操作序列。
