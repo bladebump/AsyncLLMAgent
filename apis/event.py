@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json
-import base64
-from events.parse import FrameParser, Frame
+from events.parse import MergeParser, Frame
 
 event_router = APIRouter(prefix="/event")
 
@@ -13,7 +12,7 @@ class EventPost(BaseModel):
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
-    frame_list = FrameParser(events.frame_list).parse()
+    frame_list = MergeParser(events.frame_list).parse()
     prompt = f"""
 # 任务说明
 你是一个专业的终端操作分析专家。你的任务是从连续的终端日志中识别和分析用户的操作序列。
