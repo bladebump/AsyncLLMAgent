@@ -90,6 +90,7 @@ class MergeParser(FrameParser):
                             is_from_client=False
                         )
                     frame_list.append(temp_frame)
+                    frame_list.append(frame)
                     self.merge_buffer = []
                     self.merge_buffer_cursor = 0
             self.front_frame = frame
