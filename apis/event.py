@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json, parse_markdown_yaml
-from events.parse import MergeParser, Frame
+from events.parse import MergeParser, Frame, FrameParser, OutputParser
 from utils.log import logger
 
 event_router = APIRouter(prefix="/event")
@@ -14,16 +14,15 @@ class EventPost(BaseModel):
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     logger.debug(f"frame_list: {events.frame_list}")
-    frame_list = MergeParser(events.frame_list).parse()
+    frame_list = FrameParser(events.frame_list).parse()
     logger.debug(f"Parse frame_list: {frame_list}")
-    frame_content = "\n".join([f"timestamp: {frame['timestamp']} data: {frame['data']}" for frame in frame_list])
     prompt = f"""
 # 任务说明
 你是一个专业的终端操作分析专家。你的任务是从连续的终端日志中识别和分析用户的操作序列。
 
 # 输入数据
 以下是按时间顺序排列的终端日志片段：
-{frame_content}
+{frame_list}
 
 # 分析要求
 1. 每个用户操作（event）应该包含：

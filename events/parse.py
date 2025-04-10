@@ -13,12 +13,22 @@ class FrameParser:
     def parse(self):
         frame_list = []
         for frame in self.frame_list:
+            frame_list.append({
+                "timestamp": frame.timestamp,
+                "data": base64.b64decode(frame.data).decode("utf-8"),
+                "is_from_client": frame.is_from_client
+            })
+        return frame_list
+    
+class OutputParser:
+    def parse(self):
+        frame_list = []
+        for frame in self.frame_list:
             if not frame.is_from_client:
                 frame_list.append({
                     "timestamp": frame.timestamp,
                     "data": base64.b64decode(frame.data).decode("utf-8")
                 })
-        return frame_list
 
 class MergeParser(FrameParser):
 
