@@ -58,8 +58,7 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 3. 注意识别特殊场景，如交互式程序、编辑模式等
 4. 输出的值使用中文
 5. 事件必须和用户输入的命令或操作对应，没有相应的输入，则不输出event
-6. 如果没有相应的event，则输出空列表
-7. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出未检测到任何事件
+6. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出未检测到任何事件
 """
     use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
