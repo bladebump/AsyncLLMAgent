@@ -58,7 +58,7 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 2. 对于复杂的操作序列，需要仔细分析输入和输出的对应关系
 3. 注意识别特殊场景，如交互式程序、编辑模式等
 4. 输出的值使用中文
-5. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出未检测到任何事件
+5. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出无
 6. 输出中不应该存在制表符和不可见字符
 """
     use_llm = cot_llm if events.use_cot_model else llm
