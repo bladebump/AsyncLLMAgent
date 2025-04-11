@@ -10,6 +10,7 @@ event_router = APIRouter(prefix="/event")
 class EventPost(BaseModel):
     frame_list: list[Frame]
     use_cot_model: bool = False
+    request_id: str
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
@@ -62,8 +63,8 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
     use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
     if resp == "无":
-        return {"code": 200, "error": "", "data": []}
+        return {"code": 200, "error": "", "data": {"event_list": [], "request_id": events.request_id}}
     try:
-        return {"code": 200, "error": "", "data": parse_markdown_yaml(resp)}
+        return {"code": 200, "error": "", "data": {"event_list": parse_markdown_yaml(resp), "request_id": events.request_id}}
     except Exception as e:
-        return {"code": 500, "error": f"YAML解析失败\n{resp}\n错误信息: {str(e)}", "data": []}
+        return {"code": 500, "error": f"YAML解析失败\n{resp}\n错误信息: {str(e)}", "data": {"event_list": [], "request_id": events.request_id}}

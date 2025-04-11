@@ -28,15 +28,20 @@ async def lifespan(app: FastAPI):
         api_key=config.embedding.api_key,
         model=config.embedding.model,
     )
-    app.state.milvus_store = MilvusVectorStore(
+    if config.milvus.enable:
+        milvus = MilvusVectorStore(
         uri=config.milvus.uri,
         username=config.milvus.username,
         password=config.milvus.password,
         dense_vector_dim=config.milvus.dense_vector_dim,
-        use_sparse_vector=config.milvus.use_sparse_vector
-    )
+            use_sparse_vector=config.milvus.use_sparse_vector
+        )
+    else:
+        milvus = None
+    app.state.milvus_store = milvus
     yield
-    await app.state.milvus_store.close()
+    if config.milvus.enable:
+        await app.state.milvus_store.close()
 
 app = FastAPI(lifespan=lifespan)
 

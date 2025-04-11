@@ -49,7 +49,7 @@ class BaseRag(ABC):
         Returns:
             List[Document]: 最相关的文档列表
         """
-        if self.collection_name is None:
+        if self.collection_name is None or self.vector_store is None:
             return []
         
         try:

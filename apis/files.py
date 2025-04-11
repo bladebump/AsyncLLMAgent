@@ -14,6 +14,8 @@ class CreateCollection(BaseModel):
 
 @files_router.post("/create_collection")
 async def create_collection(collection: CreateCollection, milvus: VectorStoreBase = Depends(get_milvus_store)):
+    if milvus is None:
+        return {"message": "Collection 创建失败", "error": "Milvus 未启用"}
     result = await milvus.create_collection(collection.collection_name)
     if result:
         return {"message": "Collection 创建成功", "error": ""}
@@ -22,6 +24,8 @@ async def create_collection(collection: CreateCollection, milvus: VectorStoreBas
 
 @files_router.get("/delete_collection")
 async def delete_collection(collection_name: str, milvus: VectorStoreBase = Depends(get_milvus_store)):
+    if milvus is None:
+        return {"message": "Collection 删除失败", "error": "Milvus 未启用"}
     await milvus.drop_collection(collection_name)
     return {"message": "Collection 删除成功", "error": ""}
 
@@ -31,6 +35,8 @@ async def upload_file(file: UploadFile = File(...),
                       department: int = Form(default=0),
                       milvus: VectorStoreBase = Depends(get_milvus_store), 
                       embedding: EmbeddingAgent = Depends(get_embedding)):
+    if milvus is None:
+        return {"message": "文件上传失败", "error": "Milvus 未启用"}
     content = await file.read()
     filename = file.filename
     doc_list = []

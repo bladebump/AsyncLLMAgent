@@ -38,6 +38,7 @@ class MergeParser(FrameParser):
         self.merge_buffer: list[Frame] = []
         self.front_frame: Frame | None = None
         self.merge_buffer_cursor: int = 0
+        self.command_context: str = ""  # 记录当前上下文
 
     def handle_special_key(self, key_data: str):
         if b'\x7f'.decode() in key_data:  # 退格键
@@ -56,6 +57,39 @@ class MergeParser(FrameParser):
                 self.merge_buffer_cursor -= 1
             return True
         return False
+
+    def handle_up_down(self, key_data: str, next_frame_data: str):
+        up_key = b'\x1b[A'.decode()
+        down_key = b'\x1b[B'.decode()
+        
+        # 检查是否是上下方向键
+        is_up_down = up_key in key_data or down_key in key_data
+        if not is_up_down:
+            return False
+            
+        # 检查按上下键后的输出是否表明这是命令历史操作
+        # 如果下一帧的输出是一个完整命令行且与当前上下文相关，则很可能是历史命令
+        # 简单判断：下一帧输出内容应该看起来像一个命令而不是特殊界面的刷新
+        
+        # 1. 如果下一帧包含终端特殊界面刷新控制序列，则不是历史命令操作
+        control_sequences = [
+            b'\x1b[H'.decode(),  # 光标移到屏幕左上角（通常是全屏刷新的开始）
+            b'\x1b[2J'.decode(),  # 清屏
+            b'\x1b[?25l'.decode(),  # 隐藏光标
+        ]
+        for seq in control_sequences:
+            if seq in next_frame_data:
+                return False
+                
+        # 2. 如果下一帧的输出是一个看起来像命令的字符串，则可能是历史命令
+        # 这是一个简化的判断，可能需要根据实际情况调整
+        looks_like_command = (
+            not next_frame_data.strip().startswith("\x1b") and  # 不以控制字符开始
+            len(next_frame_data.split("\n")) <= 2 and  # 通常不会是多行输出
+            len(next_frame_data) < 200  # 输出不会太长
+        )
+        
+        return looks_like_command
 
     def decode_frame(self):
         frame_list = []
@@ -79,6 +113,20 @@ class MergeParser(FrameParser):
             if frame.is_from_client:
                 self.front_frame = frame
                 continue
+            
+            if self.handle_up_down(self.front_frame.data, frame.data):
+                self.in_merge = True
+                self.merge_buffer = [
+                    Frame(
+                        timestamp=frame.timestamp,
+                        data=i,
+                        is_from_client=frame.is_from_client
+                    ) for i in frame.data
+                ]
+                self.merge_buffer_cursor = len(self.merge_buffer)
+                self.front_frame = frame
+                continue
+
             if not self.in_merge:
                 if frame.data == self.front_frame.data:
                     self.in_merge = True

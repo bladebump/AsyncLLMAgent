@@ -19,8 +19,8 @@ llm_providers:
     api_key: "sk-ikrvbgsuezjiomgtczsggqgwwuexjvaxksdabgkcknejbklg"
     api_base: "https://api.siliconflow.cn/v1"
   
-  gpt4:
-    model: "gpt-4"
+  gpt4o:
+    model: "gpt-4o"
     api_key: "sk-uXjwqLuFHi9NmUsF3X3jfxj5SLFsc42SfVm0xEIWf9okyI7Q"
     api_base: "https://api.chatanywhere.tech/v1"
   
@@ -43,6 +43,7 @@ embedding:
 
 # Milvus 设置
 milvus:
+  enable: true
   uri: "http://192.170.1.190:19530"
   username: ""
   password: ""
