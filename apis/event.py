@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json, parse_markdown_yaml
-from events import ParserFactory, ParserType, Frame
+from events import ParserFactory, ParserType, Frame, Event
 from utils.log import logger
 
 event_router = APIRouter(prefix="/event")
@@ -66,6 +66,10 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
     if resp == "无":
         return {"code": 200, "error": "", "data": {"event_list": [], "request_id": events.request_id}}
     try:
-        return {"code": 200, "error": "", "data": {"event_list": parse_markdown_yaml(resp), "request_id": events.request_id}}
+        result = parse_markdown_yaml(resp)
+        if  not isinstance(result, list):
+            return {"code": 500, "error": f"解析结果不是列表\n{result}", "data": {"event_list": [], "request_id": events.request_id}}
+        result = [Event(**item).model_dump() for item in result]
+        return {"code": 200, "error": "", "data": {"event_list": result, "request_id": events.request_id}}
     except Exception as e:
         return {"code": 500, "error": f"YAML解析失败\n{resp}\n错误信息: {str(e)}", "data": {"event_list": [], "request_id": events.request_id}}

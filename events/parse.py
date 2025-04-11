@@ -6,6 +6,15 @@ class Frame(BaseModel):
     data: str # base64编码的内容
     is_from_client: bool
 
+class Event(BaseModel):
+    event_name: str
+    event_input: str
+    event_output: str
+    event_info: str
+    event_special: str
+    event_start: int
+    event_end: int
+
 class FrameParser:
     def __init__(self, frame_list: list[Frame]):
         self.frame_list = frame_list
