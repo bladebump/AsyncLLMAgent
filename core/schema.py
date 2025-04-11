@@ -56,7 +56,7 @@ class ToolCall(BaseModel):
 class Message(BaseModel):
     """Represents a chat message in the conversation"""
 
-    role: Role = Field(...)
+    role: str = Field(...)
     content: Optional[str] = Field(default=None)
     tool_calls: Optional[List[ToolCall]] = Field(default=None)
     name: Optional[str] = Field(default=None)
