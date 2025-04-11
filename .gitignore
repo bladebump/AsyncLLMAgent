@@ -41,6 +41,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+config.yaml
 
 # 日志文件
 logs/
@@ -56,4 +57,3 @@ logs/
 # 项目特定
 config_local.py
 credentials.json
-.env.local 
