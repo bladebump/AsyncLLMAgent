@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 from pydantic import Field
 from core.agent.react import ReActAgent
 from utils.log import logger
-from core.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice, Role
+from core.schema import AgentState, Message, ToolCall, ToolChoice
 from core.tools import CreateChatCompletion, Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
 
@@ -26,7 +26,7 @@ class ToolCallAgent(ReActAgent):
     available_tools: ToolCollection = ToolCollection(
         CreateChatCompletion(), Terminate()
     )
-    tool_choices: TOOL_CHOICE_TYPE = ToolChoice.AUTO  # type: ignore
+    tool_choices: ToolChoice = ToolChoice.AUTO
     special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
 
     tool_calls: List[ToolCall] = Field(default_factory=list)

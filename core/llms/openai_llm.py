@@ -2,7 +2,7 @@ from typing import List, Union, Tuple, AsyncIterator, Callable
 from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
 from openai import AsyncOpenAI
-from core.schema import Message, TOOL_CHOICE_TYPE, ToolChoice
+from core.schema import Message, ToolChoice
 from core.config import config
 
 class OpenAICoT(AsyncBaseChatCOTModel):
@@ -93,7 +93,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
 
     async def chat_with_tools(self, messages: List[Union[Message, dict]], 
                               tools: List[dict] | None = None, 
-                              tool_choice: TOOL_CHOICE_TYPE = ToolChoice.AUTO, # type: ignore
+                              tool_choice: ToolChoice = ToolChoice.AUTO,
                               **kwargs) -> Message:
         """支持MCP工具调用的对话接口"""
         if not isinstance(messages[0], dict):

@@ -20,7 +20,7 @@ class FrameParser:
             })
         return frame_list
     
-class OutputParser:
+class OutputParser(FrameParser):
     def parse(self):
         frame_list = []
         for frame in self.frame_list:
@@ -40,19 +40,19 @@ class MergeParser(FrameParser):
         self.merge_buffer_cursor: int = 0
         self.command_context: str = ""  # 记录当前上下文
 
-    def handle_special_key(self, key_data: str):
-        if b'\x7f'.decode() in key_data:  # 退格键
+    def handle_special_key(self, key_frame: Frame):
+        # 处理退格键
+        if b'\x7f'.decode() in key_frame.data:
             if self.merge_buffer_cursor > 0:
                 self.merge_buffer.pop(self.merge_buffer_cursor - 1)
                 self.merge_buffer_cursor -= 1
             return True
-        
         # 处理方向键左右
-        if b'\x1b[C'.decode() in key_data:  # 右方向键
+        elif b'\x1b[C'.decode() in key_frame.data:  # 右方向键
             if self.merge_buffer_cursor < len(self.merge_buffer):
                 self.merge_buffer_cursor += 1
             return True
-        elif b'\x1b[D'.decode() in key_data:  # 左方向键
+        elif b'\x1b[D'.decode() in key_frame.data:  # 左方向键
             if self.merge_buffer_cursor > 0:
                 self.merge_buffer_cursor -= 1
             return True
@@ -133,9 +133,11 @@ class MergeParser(FrameParser):
                     self.merge_buffer.insert(self.merge_buffer_cursor, frame)
                     self.merge_buffer_cursor += 1
                 else:
+                    if self.front_frame.is_from_client:
+                        frame_list.append(self.front_frame)
                     frame_list.append(frame)
             elif self.in_merge:
-                has_handle = self.handle_special_key(self.front_frame.data)
+                has_handle = self.handle_special_key(self.front_frame)
                 if has_handle:
                     self.front_frame = frame
                     continue
@@ -148,18 +150,16 @@ class MergeParser(FrameParser):
                         temp_frame = Frame(
                             timestamp=self.merge_buffer[0].timestamp,
                             data="".join([tmp_frame.data for tmp_frame in self.merge_buffer]),
-                            is_from_client=False
+                            is_from_client=True
                         )
-                    frame_list.append(temp_frame)
+                        temp_frame_2 = temp_frame.model_copy()
+                        temp_frame_2.is_from_client = False
+                        frame_list.append(temp_frame)
+                        frame_list.append(temp_frame_2)
+                    if self.front_frame.is_from_client:
+                        frame_list.append(self.front_frame)
                     frame_list.append(frame)
                     self.merge_buffer = []
                     self.merge_buffer_cursor = 0
             self.front_frame = frame
-        if self.in_merge:
-            temp_frame = Frame(
-                timestamp=self.merge_buffer[0].timestamp,
-                data="".join([tmp_frame.data for tmp_frame in self.merge_buffer]),
-                is_from_client=False
-            )
-            frame_list.append(temp_frame)
-        return [{"timestamp": frame.timestamp, "data": frame.data} for frame in frame_list]
+        return [{"timestamp": frame.timestamp, "data": frame.data, "is_from_client": frame.is_from_client} for frame in frame_list]

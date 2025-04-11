@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from utils.retry import retry
 from typing import List, Union, Tuple, Literal, AsyncIterator
 from utils.log import logger
-from core.schema import Message, ROLE_VALUES, TOOL_CHOICE_TYPE, ToolChoice
+from core.schema import Message, ROLE_VALUES, ToolChoice
 
 class FnCallNotImplError(NotImplementedError):
     pass
@@ -44,7 +44,7 @@ class AsyncBaseLLMModel(ABC):
         self,
         messages: List[Union[Message, dict]],
         tools: List[dict] | None = None,
-        tool_choice: TOOL_CHOICE_TYPE = ToolChoice.AUTO, # type: ignore
+        tool_choice: ToolChoice = ToolChoice.AUTO,
         **kwargs
     ) -> Message:
         raise NotImplementedError

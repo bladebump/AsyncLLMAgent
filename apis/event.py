@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot, parse_markdown_json, parse_markdown_yaml
-from events.parse import MergeParser, Frame, FrameParser, OutputParser
+from events import ParserFactory, ParserType, Frame
 from utils.log import logger
 
 event_router = APIRouter(prefix="/event")
@@ -11,11 +11,13 @@ class EventPost(BaseModel):
     frame_list: list[Frame]
     use_cot_model: bool = False
     request_id: str
+    parser_type: ParserType = ParserType.ALL
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     logger.debug(f"frame_list: {events.frame_list}")
-    frame_list = FrameParser(events.frame_list).parse()
+    parser = ParserFactory.create_parser(events.parser_type, events.frame_list)
+    frame_list = parser.parse()
     logger.debug(f"Parse frame_list: {frame_list}")
     prompt = f"""
 # 任务说明
@@ -32,7 +34,6 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
    - 操作的时间范围（开始和结束时间戳）
 
 2. 分析原则：
-   - 一个 event 必须包含完整的用户操作和对应的系统响应
    - event 之间不能有时间重叠，必须按时间顺序排列
    - 用户输入通常以回车键结束，但要注意特殊场景（如 vim 编辑模式）
    - 对于长输出，可以适当总结而不是完整展示
@@ -57,8 +58,8 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 2. 对于复杂的操作序列，需要仔细分析输入和输出的对应关系
 3. 注意识别特殊场景，如交互式程序、编辑模式等
 4. 输出的值使用中文
-5. 事件必须和用户输入的命令或操作对应，没有相应的输入，则不输出event
-6. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出未检测到任何事件
+5. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出未检测到任何事件
+6. 输出中不应该存在制表符和不可见字符
 """
     use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)

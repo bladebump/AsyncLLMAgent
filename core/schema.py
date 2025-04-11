@@ -12,10 +12,7 @@ class Role(str, Enum):
     ASSISTANT = "assistant"
     TOOL = "tool"
 
-
 ROLE_VALUES = tuple(role.value for role in Role)
-ROLE_TYPE = Literal[ROLE_VALUES]  # type: ignore
-
 
 class ToolChoice(str, Enum):
     """Tool choice options"""
@@ -23,11 +20,6 @@ class ToolChoice(str, Enum):
     NONE = "none"
     AUTO = "auto"
     REQUIRED = "required"
-
-
-TOOL_CHOICE_VALUES = tuple(choice.value for choice in ToolChoice)
-TOOL_CHOICE_TYPE = Literal[TOOL_CHOICE_VALUES]  # type: ignore
-
 
 class AgentState(str, Enum):
     """Agent execution states"""
@@ -64,7 +56,7 @@ class ToolCall(BaseModel):
 class Message(BaseModel):
     """Represents a chat message in the conversation"""
 
-    role: ROLE_TYPE = Field(...)  # type: ignore
+    role: Role = Field(...)
     content: Optional[str] = Field(default=None)
     tool_calls: Optional[List[ToolCall]] = Field(default=None)
     name: Optional[str] = Field(default=None)
