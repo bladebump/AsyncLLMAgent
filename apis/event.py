@@ -67,8 +67,8 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
         return {"code": 200, "error": "", "data": {"event_list": [], "request_id": events.request_id}}
     try:
         result = parse_markdown_yaml(resp)
-        if  not isinstance(result, list):
-            return {"code": 500, "error": f"解析结果不是列表\n{result}", "data": {"event_list": [], "request_id": events.request_id}}
+        if isinstance(result, str):
+            return {"code": 200, "error": "", "data": {"event_list": [], "request_id": events.request_id}}
         result = [Event(**item).model_dump() for item in result]
         return {"code": 200, "error": "", "data": {"event_list": result, "request_id": events.request_id}}
     except Exception as e:
