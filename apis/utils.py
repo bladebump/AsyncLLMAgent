@@ -16,6 +16,9 @@ def get_embedding(request: Request):
 def get_milvus_store(request: Request):
     return request.app.state.milvus_store
 
+def get_reranker(request: Request):
+    return request.app.state.reranker
+
 def parse_markdown_json(text: str) -> any:
     """解析可能被markdown代码块包裹的JSON字符串
     

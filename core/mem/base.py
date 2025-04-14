@@ -4,7 +4,7 @@ from typing import List
 
 class AsyncMemory(ABC):
     
-    def __init__(self, messages: List[Message] = [], max_length: int = 20):
+    def __init__(self, messages: List[Message] = [], max_length: int = 100):
         self.Messages = messages
         self.max_length = max_length
 

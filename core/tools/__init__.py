@@ -5,5 +5,6 @@ from .get_weather import GetWeather
 from .bash import Bash
 from .planning import PlanningTool
 from .summarize import Summarize
+from .rag_tool import RAGTool
 
-__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "GetWeather", "Bash", "PlanningTool", "Summarize"]
+__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "GetWeather", "Bash", "PlanningTool", "Summarize", "RAGTool"]

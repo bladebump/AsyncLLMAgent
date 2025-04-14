@@ -156,3 +156,14 @@ class Message(BaseModel):
             base64_image=base64_image,
             **kwargs,
         )
+    
+    @classmethod
+    def from_history(cls, history: dict):
+        """从历史记录中创建消息"""
+        if history["role"] == Role.USER:
+            return Message.user_message(content=history.get("content", None))
+        elif history["role"] == Role.ASSISTANT:
+            return Message.assistant_message(content=history.get("content", None), base64_image=history.get("base64_image", None))
+        elif history["role"] == Role.TOOL:
+            return Message.tool_message(content=history.get("content", None), name=history.get("name", None), tool_call_id=history.get("tool_call_id", None), base64_image=history.get("base64_image", None))
+

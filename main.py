@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from core.llms.openai_llm import OpenAICoT
 from core.embeddings.silicon_agent import SiliconEmbeddingAgent
+from core.ranks import SiliconRankAgent
 from core.vector.milvus import MilvusVectorStore
 from core.config import config
 from apis import all_routers
@@ -27,6 +28,11 @@ async def lifespan(app: FastAPI):
         url=config.embedding.api_base,
         api_key=config.embedding.api_key,
         model=config.embedding.model,
+    )
+    app.state.reranker = SiliconRankAgent(
+        url=config.reranker.api_base,
+        api_key=config.reranker.api_key,
+        model=config.reranker.model,
     )
     if config.milvus.enable:
         milvus = MilvusVectorStore(

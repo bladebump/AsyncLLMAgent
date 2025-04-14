@@ -27,6 +27,9 @@ class ListMemory(AsyncMemory):
 
     async def clear(self):
         self.Messages = []
+    
+    async def load_from_history(self, history: List[dict]):
+        self.Messages = [Message.from_history(message) for message in history]
 
     async def save(self):
         raise NotImplementedError("ListMemory does not support saving")

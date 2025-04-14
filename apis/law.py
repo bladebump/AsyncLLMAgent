@@ -8,6 +8,7 @@ from core.vector.base import VectorStoreBase
 from core.embeddings.base import EmbeddingAgent
 from core.llms.base import AsyncBaseChatCOTModel
 from core.rags.law import LawRag
+from core.ranks import AsyncRankAgent
 
 law_router = APIRouter(prefix="/law")
 
@@ -44,7 +45,7 @@ class lawqa(BaseModel):
     use_cot_model: bool = False
 
 @law_router.post("/lawqa")
-async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(get_milvus_store), text_embedder:EmbeddingAgent = Depends(get_embedding), llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(get_milvus_store), text_embedder:EmbeddingAgent = Depends(get_embedding), llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot), reranker:AsyncRankAgent = Depends(get_reranker)):
     """法律相关问答"""
     async def generate():
         query = input.msg
@@ -52,7 +53,7 @@ async def post_lwa_qa_endpoint(input:lawqa, milvus: VectorStoreBase = Depends(ge
         collection_name = input.collection_name
         use_cot_model = input.use_cot_model
 
-        rag = LawRag(query=query,collection_name=collection_name,department=None,messages=history,text_embedder=text_embedder,vector_store=milvus,llm=llm)
+        rag = LawRag(query=query,collection_name=collection_name,department=None,messages=history,text_embedder=text_embedder,vector_store=milvus,llm=llm, reranker=reranker)
         docs = await rag.choose_doc_for_answer()
 
         doc_str = ""

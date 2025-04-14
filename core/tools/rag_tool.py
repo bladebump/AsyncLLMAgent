@@ -10,7 +10,7 @@ class RAGTool(BaseTool):
     """一个用于执行RAG任务的工具"""
 
     name: str = "rag"
-    description: str = "一个用于执行RAG任务的工具"
+    description: str = "一个用于执行RAG任务的工具，会去检索相关文档，并返回检索到的文档内容"
     parameters: dict = {
         "type": "object",
         "properties": {
