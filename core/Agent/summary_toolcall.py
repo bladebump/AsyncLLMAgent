@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Optional, Union, Any
+import asyncio
 from pydantic import Field
 from core.agent.toolcall import ToolCallAgent
+from core.tools import Summarize, ToolCollection
+from core.schema import AgentState, Message, AgentDone
 from utils.log import logger
-from core.schema import Message, ToolChoice
-from core.tools import Terminate, CreateChatCompletion, Summarize, ToolCollection
 
 SUMMARY_SYSTEM_PROMPT = """你是一个可以执行工具调用的代理，请根据用户的需求选择合适的工具，并使用工具调用执行任务。
 你可以反复使用工具调用直到任务完成。
@@ -22,21 +23,49 @@ class SummaryToolCallAgent(ToolCallAgent):
     system_prompt: str = SUMMARY_SYSTEM_PROMPT
     next_step_prompt: str = SUMMARY_NEXT_STEP_PROMPT
 
-    available_tools: ToolCollection = ToolCollection(
-        CreateChatCompletion(), Terminate(), Summarize()
-    )
-    
-    # 添加Summarize到特殊工具列表
-    special_tool_names: List[str] = Field(
-        default_factory=lambda: [Terminate().name, Summarize().name]
-    )
+    available_tools: ToolCollection = Field(default_factory=lambda: ToolCollection(
+        Summarize()
+    ))
 
-    def _should_finish_execution(self, name: str, **kwargs) -> bool:
-        """确定是否应该完成工具执行
+    special_tool_names: List[str] = Field(default_factory=lambda: [Summarize().name])
+    
+    def __init__(self, **kwargs):
+        """初始化代理并设置实例属性"""
+        super().__init__(**kwargs)
+        # 存储最终总结结果，作为实例属性而非类属性
+        self.summary_result: Optional[str] = None
+    
+    async def _handle_special_tool(self, name: str, result: Any, **kwargs):
+        """处理特殊工具执行和状态变化，捕获summarize工具的结果"""
+        if self._is_special_tool(name):
+            self.summary_result = str(result)
+            logger.info(f"捕获到summarize工具结果: {self.summary_result[:100]}...")
         
-        当调用Terminate或Summarize工具时，执行应该结束
-        """
-        # 检查是否为终止或总结工具
-        terminate_name = Terminate().name.lower()
-        summarize_name = Summarize().name.lower()
-        return name.lower() in [terminate_name, summarize_name] 
+        # 调用父类方法处理特殊工具
+        await super()._handle_special_tool(name=name, result=result, **kwargs)
+    
+    async def run(self, request: Optional[str] = None) -> str:
+        """重写run方法以返回summary结果"""
+        # 重置summary_result
+        self.summary_result = None
+        
+        # 调用父类的run方法执行代理流程
+        _ = await super().run(request)
+        
+        # 如果有summary结果，则返回它；否则返回最后一条消息
+        if self.summary_result:
+            return self.summary_result
+        
+        return "未能获取总结结果"
+    
+    async def run_stream(self, request: Optional[str] = None) -> asyncio.Queue:
+        """重写run_stream方法以支持流式输出，最后返回summary结果"""
+        # 重置summary_result
+        self.summary_result = None
+        # 获取父类的stream队列
+        result_queue = await super().run_stream(request)
+        return result_queue
+    
+    async def get_summary_result(self) -> Optional[str]:
+        """获取总结结果"""
+        return self.summary_result

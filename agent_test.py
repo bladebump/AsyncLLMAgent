@@ -1,4 +1,4 @@
-from core.agent.toolcall import ToolCallAgent
+from core.agent import ToolCallAgent, SummaryToolCallAgent
 import asyncio
 from core.config import config
 from core.llms import OpenAICoT
@@ -14,7 +14,7 @@ async def main():
         api_key=llm_config.api_key,
         model=llm_config.model,
     )
-    assistant = ToolCallAgent(
+    assistant = SummaryToolCallAgent(
         name="天气助手",
         description="一个可以查询天气的助手",
         llm=llm,
@@ -28,7 +28,7 @@ async def main():
         if isinstance(chunk, AgentDone):
             break
         print(chunk)
-    print(assistant.memory)
+    print(await assistant.get_summary_result())
     
 if __name__ == "__main__":
     asyncio.run(main())

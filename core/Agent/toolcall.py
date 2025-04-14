@@ -4,7 +4,7 @@ from pydantic import Field
 from core.agent.react import ReActAgent
 from utils.log import logger
 from core.schema import AgentState, Message, ToolCall, ToolChoice
-from core.tools import CreateChatCompletion, Terminate, ToolCollection
+from core.tools import Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
 
 TOOL_CALL_REQUIRED = "需要工具调用但未提供"
@@ -24,7 +24,7 @@ class ToolCallAgent(ReActAgent):
     next_step_prompt: str = NEXT_STEP_PROMPT
 
     available_tools: ToolCollection = ToolCollection(
-        CreateChatCompletion(), Terminate()
+        Terminate()
     )
     tool_choices: str = ToolChoice.AUTO
     special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
@@ -121,7 +121,8 @@ class ToolCallAgent(ReActAgent):
                 raise ValueError(TOOL_CALL_REQUIRED)
 
             # 如果没有任何命令，返回最后一条消息的内容
-            return self.memory.get_last_n_messages(1)[0].content or "没有内容或命令要执行"
+            messages = await self.memory.get_last_n_messages(1)
+            return messages[0].content or "没有内容或命令要执行"
 
         results = []
         for command in self.tool_calls:

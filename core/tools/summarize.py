@@ -20,9 +20,7 @@ class Summarize(BaseTool):
         },
         "required": ["message"],
     }
-    llm: AsyncBaseChatCOTModel = Field(...)
 
-    async def execute(self, message: list[Message]) -> str:
+    async def execute(self, message: str) -> str:
         """生成总结回答"""
-        _, response = await self.llm.chat(message, stream=False)
-        return response
+        return message
