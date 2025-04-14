@@ -50,8 +50,8 @@ milvus:
   dense_vector_dim: 1024
   use_sparse_vector: false
 
-# 法律相关问答
-law_qa:
+# 问答相关
+qa:
   threshold: 0.5
 
 # 文本分块设置

@@ -52,6 +52,7 @@ logs/
 .vscode/
 *.swp
 *.swo
+.cursor/
 .DS_Store
 
 # 项目特定

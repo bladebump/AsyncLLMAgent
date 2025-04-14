@@ -73,3 +73,4 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
         return {"code": 200, "error": "", "data": {"event_list": result, "request_id": events.request_id}}
     except Exception as e:
         return {"code": 500, "error": f"YAML解析失败\n{resp}\n错误信息: {str(e)}", "data": {"event_list": [], "request_id": events.request_id}}
+

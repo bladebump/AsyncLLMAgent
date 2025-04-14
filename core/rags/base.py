@@ -15,13 +15,11 @@ class BaseRag(ABC):
                  text_embedder: EmbeddingAgent, 
                  vector_store: VectorStoreBase, 
                  department: List[str] | None = None, 
-                 messages: List[Any] | None = None,  
                  llm: AsyncBaseChatCOTModel | None = None,
                  reranker: AsyncRankAgent | None = None):
         self.query = query
         self.collection_name = collection_name
         self.department = department
-        self.messages = messages.copy() if messages else []
         self.text_embedder = text_embedder
         self.vector_store = vector_store
         self.llm = llm
@@ -73,11 +71,12 @@ class BaseRag(ABC):
             
         return self.docs[:top_k]
     
-    async def search_vector(self, query_list: List[str], qa_thould: float = 0.5) -> List[Document]:
+    async def search_vector(self, query_list: List[str], qa_threshold: float = 0.5) -> List[Document]:
         """搜索向量存储中的文档
 
         Args:
             query_list (List[str]): 查询列表
+            qa_threshold (float): 问答阈值
 
         Returns:
             List[Document]: 文档列表

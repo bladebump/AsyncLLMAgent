@@ -20,4 +20,4 @@ class GetWeather(BaseTool):
 
     async def execute(self, city: str) -> str:
         """获取天气信息"""
-        return f"城市: {city} 的是晴天"
+        return f"城市: {city} 是晴天"
