@@ -7,7 +7,7 @@ class AsyncRankAgent(ABC):
     """
     
     @abstractmethod
-    async def rerank(self, query: str, passages: List[str]) -> Dict[str, Any]:
+    async def rerank(self, query: str, passages: List[str], top_n: int = 5) -> Dict[str, Any]:
         """
         对检索到的文本段落进行重排序
         

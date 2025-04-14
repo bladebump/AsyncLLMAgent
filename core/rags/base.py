@@ -63,8 +63,8 @@ class BaseRag(ABC):
         if self.reranker:
             try:
                 passages = [doc.text for doc in self.docs]
-                rerank_result = await self.reranker.rerank(query=self.query, passages=passages)
-                rerank_ids = rerank_result['rerank_ids'][:top_k]
+                rerank_result = await self.reranker.rerank(query=self.query, passages=passages, top_n=top_k)
+                rerank_ids = rerank_result['rerank_ids']
                 self.docs = [self.docs[i] for i in rerank_ids]
             except Exception as e:
                 logger.error(f"rerank error: {str(e)}")

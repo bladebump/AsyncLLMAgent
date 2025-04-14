@@ -41,14 +41,14 @@ async def main():
         model=config.reranker.model,
     )
     assistant.available_tools.add_tool(RAGTool(
-        description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容",
+        description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
         milvus_client=milvus,
         collection_name="law",
         llm=llm,
         text_embedder=embedding,
         reranker=reranker
     ))
-    queue = await assistant.run_stream("如果我邻居天天在晚上唱歌，我该怎么办？")
+    queue = await assistant.run_stream("杭州旅行攻略")
     
     while True:
         chunk = await queue.get()

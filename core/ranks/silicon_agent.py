@@ -26,7 +26,7 @@ class SiliconRankAgent(AsyncRankAgent):
             "Content-Type": "application/json"
         }
 
-    async def rerank(self, query: str, passages: List[str], top_n: int = 4) -> Dict[str, Any]:
+    async def rerank(self, query: str, passages: List[str], top_n: int = 5) -> Dict[str, Any]:
         """
         通过硅基流动API对文档进行重排序
         
@@ -55,9 +55,9 @@ class SiliconRankAgent(AsyncRankAgent):
                     logger.error(f"地址: {self.url},请求失败，状态码: {response.status}, 响应内容: {response_text}")
                     # 如果请求失败，返回原始文档列表，分数设为0
                     return {
-                        "passages": passages,
-                        "scores": [0.0] * len(passages),
-                        "ids": list(range(len(passages)))
+                        "rerank_passages": passages,
+                        "rerank_scores": [0.0] * len(passages),
+                        "rerank_ids": list(range(len(passages)))
                     }
                 
                 response_json = await response.json()
@@ -74,7 +74,7 @@ class SiliconRankAgent(AsyncRankAgent):
                     ids.append(result["index"])
                 
                 return {
-                    "passages": reranked_passages,
-                    "scores": scores,
-                    "ids": ids
+                    "rerank_passages": reranked_passages,
+                    "rerank_scores": scores,
+                    "rerank_ids": ids
                 } 

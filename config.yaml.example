@@ -45,7 +45,7 @@ embedding:
 reranker:
   model: "Pro/BAAI/bge-reranker-v2-m3"
   api_key: "your-reranker-api-key"
-  api_base: "https://api.siliconflow.cn/v1/embeddings"
+  api_base: "https://api.siliconflow.cn/v1/rerank"
 
 # Milvus 设置
 milvus:
