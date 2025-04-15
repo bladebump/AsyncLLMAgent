@@ -49,7 +49,7 @@ async def main():
         reranker=reranker
     ))
     assistant.available_tools.add_tool(GetWeather())
-    queue = await assistant.run_stream("杭州的旅行攻略")
+    queue = await assistant.run_stream("杭州天气如何")
     
     while True:
         chunk = await queue.get()

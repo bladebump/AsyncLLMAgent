@@ -41,3 +41,9 @@ class AsyncMemory(ABC):
 
     def __len__(self):
         return len(self.Messages)
+
+    @classmethod
+    def load_from_history(cls, history: List[dict]):
+        memory = cls()
+        memory.Messages = [Message.from_history(message) for message in history]
+        return memory
