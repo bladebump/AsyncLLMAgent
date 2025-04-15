@@ -53,15 +53,24 @@ class ToolCall(BaseModel):
     function: Function
 
 
-class Message(BaseModel):
+class Message:
     """Represents a chat message in the conversation"""
 
-    role: str = Field(...)
-    content: Optional[str] = Field(default=None)
-    tool_calls: Optional[List[ToolCall]] = Field(default=None)
-    name: Optional[str] = Field(default=None)
-    tool_call_id: Optional[str] = Field(default=None)
-    base64_image: Optional[str] = Field(default=None)
+    def __init__(
+        self,
+        role: str,
+        content: Optional[str] = None,
+        tool_calls: Optional[List[ToolCall]] = None,
+        name: Optional[str] = None,
+        tool_call_id: Optional[str] = None,
+        base64_image: Optional[str] = None
+    ):
+        self.role = role
+        self.content = content
+        self.tool_calls = tool_calls
+        self.name = name
+        self.tool_call_id = tool_call_id
+        self.base64_image = base64_image
 
     def __add__(self, other) -> List["Message"]:
         """支持 Message + list 或 Message + Message 的操作"""
@@ -85,11 +94,11 @@ class Message(BaseModel):
 
     def to_dict(self) -> dict:
         """Convert message to dictionary format"""
-        message = {"role": self.role}
+        message = {"role": self.role.value if isinstance(self.role, Enum) else self.role}
         if self.content is not None:
             message["content"] = self.content
         if self.tool_calls is not None:
-            message["tool_calls"] = [tool_call.model_dump() for tool_call in self.tool_calls]
+            message["tool_calls"] = self.tool_calls
         if self.name is not None:
             message["name"] = self.name
         if self.tool_call_id is not None:
@@ -119,7 +128,7 @@ class Message(BaseModel):
 
     @classmethod
     def tool_message(
-        cls, content: str, name, tool_call_id: str, base64_image: Optional[str] = None
+        cls, content: str, name: str, tool_call_id: str, base64_image: Optional[str] = None
     ) -> "Message":
         """Create a tool message"""
         return cls(

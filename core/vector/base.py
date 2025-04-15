@@ -98,7 +98,7 @@ class Document(DocumentBase):
         )
 
 
-class VectorStoreBase(Generic[T], ABC):
+class VectorStoreBase(ABC):
     """
     向量存储的基类，定义了向量数据库的基本操作接口
     

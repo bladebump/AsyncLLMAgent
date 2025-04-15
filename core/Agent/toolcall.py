@@ -1,11 +1,12 @@
 import json
 from typing import Any, List, Optional, Union
-from pydantic import Field
 from core.agent.react import ReActAgent
 from utils.log import logger
 from core.schema import AgentState, Message, ToolCall, ToolChoice
 from core.tools import Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
+from core.llms import AsyncBaseChatCOTModel
+from core.mem import AsyncMemory
 
 TOOL_CALL_REQUIRED = "需要工具调用但未提供"
 SYSTEM_PROMPT = "你是一个可以执行工具调用的代理, 请根据用户的需求选择合适的工具, 并使用工具调用执行任务。你可以反复使用工具调用直到任务完成。"
@@ -17,23 +18,51 @@ NEXT_STEP_PROMPT = (
 class ToolCallAgent(ReActAgent):
     """用于处理工具/函数调用的基础代理类"""
 
-    name: str = "toolcall"
-    description: str = "一个可以执行工具调用的代理。"
-
-    system_prompt: str = SYSTEM_PROMPT
-    next_step_prompt: str = NEXT_STEP_PROMPT
-
-    available_tools: ToolCollection = ToolCollection(
-        Terminate()
-    )
-    tool_choices: str = ToolChoice.AUTO
-    special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
-
-    tool_calls: List[ToolCall] = Field(default_factory=list)
-    _current_base64_image: Optional[str] = None
-
-    max_steps: int = 30
-    max_observe: Optional[Union[int, bool]] = None
+    def __init__(
+        self,
+        name: str = "toolcall",
+        llm: AsyncBaseChatCOTModel = None,
+        memory: AsyncMemory = None,
+        description: str = "一个可以执行工具调用的代理。",
+        system_prompt: str = SYSTEM_PROMPT,
+        next_step_prompt: str = NEXT_STEP_PROMPT,
+        state: AgentState = AgentState.IDLE,
+        available_tools: Optional[ToolCollection] = None,
+        tool_choices: str = ToolChoice.AUTO,
+        special_tool_names: Optional[List[str]] = None,
+        max_steps: int = 30,
+        max_observe: Optional[Union[int, bool]] = None,
+        **kwargs
+    ):
+        super().__init__(
+            name=name,
+            llm=llm,
+            memory=memory,
+            description=description,
+            system_prompt=system_prompt,
+            next_step_prompt=next_step_prompt,
+            state=state,
+            max_steps=max_steps,
+            **kwargs
+        )
+        
+        # 初始化默认工具集合
+        if available_tools is None:
+            self.available_tools = ToolCollection(Terminate())
+        else:
+            self.available_tools = available_tools
+            
+        self.tool_choices = tool_choices
+        
+        # 初始化特殊工具名称
+        if special_tool_names is None:
+            self.special_tool_names = [Terminate().name]
+        else:
+            self.special_tool_names = special_tool_names
+            
+        self.tool_calls = []
+        self._current_base64_image = None
+        self.max_observe = max_observe
 
     async def think(self) -> bool:
         """处理当前状态并决定下一步操作使用工具"""

@@ -48,14 +48,22 @@ async def main():
         text_embedder=embedding,
         reranker=reranker
     ))
-    queue = await assistant.run_stream("杭州旅行攻略")
+    assistant.available_tools.add_tool(GetWeather())
+    queue = await assistant.run_stream("杭州的旅行攻略")
     
     while True:
         chunk = await queue.get()
+        all_thinking = ""
+        all_result = ""
         if isinstance(chunk, AgentDone):
             break
-        print(chunk)
-    print(await assistant.get_summary_result())
+        elif isinstance(chunk, str):
+            print(chunk)
+        else:
+            async for think, resp in chunk:
+                all_thinking += think
+                all_result += resp
+                print(all_thinking, all_result)
     
 if __name__ == "__main__":
     asyncio.run(main())

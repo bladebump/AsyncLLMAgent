@@ -2,46 +2,54 @@ from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import List, Optional
 import asyncio
-from pydantic import BaseModel, Field
-from core.llms.base import AsyncBaseChatCOTModel
 from utils.log import logger
+from core.llms.base import AsyncBaseChatCOTModel
 from core.schema import AgentState, AgentDone, Message, AgentResult
 from core.mem import AsyncMemory
 
 
-class BaseAgent(BaseModel, ABC):
+class BaseAgent(ABC):
     """抽象基类，用于管理代理状态和执行。
     提供状态转换、内存管理以及基于步骤的执行循环的基础功能。子类必须实现 `step` 方法。
     """
 
-    # 核心属性
-    name: str = Field(..., description="代理的唯一名称")
-    description: Optional[str] = Field(None, description="可选的代理描述")
+    def __init__(
+        self,
+        name: str,
+        llm: AsyncBaseChatCOTModel,
+        memory: AsyncMemory,
+        description: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        next_step_prompt: Optional[str] = None,
+        state: AgentState = AgentState.IDLE,
+        max_steps: int = 10,
+        current_step: int = 0,
+        duplicate_threshold: int = 2,
+        **kwargs
+    ):
+        # 核心属性
+        self.name = name
+        self.description = description
 
-    # 提示
-    system_prompt: Optional[str] = Field(
-        None, description="系统级别的指令提示"
-    )
-    next_step_prompt: Optional[str] = Field(
-        None, description="确定下一步操作的提示"
-    )
+        # 提示
+        self.system_prompt = system_prompt
+        self.next_step_prompt = next_step_prompt
 
-    # 依赖
-    llm: AsyncBaseChatCOTModel = Field(..., description="语言模型实例")
-    memory: AsyncMemory = Field(..., description="代理的内存存储")
-    state: AgentState = Field(
-        default=AgentState.IDLE, description="当前代理状态"
-    )
+        # 依赖
+        self.llm = llm
+        self.memory = memory
+        self.state = state
 
-    # 执行控制
-    max_steps: int = Field(default=10, description="最大步骤数")
-    current_step: int = Field(default=0, description="当前步骤")
-
-    duplicate_threshold: int = 2
-
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"  # 允许子类有额外字段
+        # 执行控制
+        self.max_steps = max_steps
+        self.current_step = current_step
+        
+        self.duplicate_threshold = duplicate_threshold
+        self.request = ""
+        
+        # 允许子类有额外属性
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @asynccontextmanager
     async def state_context(self, new_state: AgentState):
@@ -85,6 +93,7 @@ class BaseAgent(BaseModel, ABC):
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
         if request:
+            self.request = request
             await self.memory.add(Message.user_message(request))
 
         results: List[str] = []
@@ -128,6 +137,7 @@ class BaseAgent(BaseModel, ABC):
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
         if request:
+            self.request = request
             await self.memory.add(Message.user_message(request))
 
         # 在后台任务中执行，避免阻塞

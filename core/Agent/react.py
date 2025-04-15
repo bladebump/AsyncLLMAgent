@@ -1,27 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Optional
-
-from pydantic import Field
-
 from core.agent.base import BaseAgent
-from core.llms import AsyncBaseChatCOTModel
-from core.mem import AsyncMemory
-from core.schema import AgentState
 
 
 class ReActAgent(BaseAgent, ABC):
-    name: str
-    description: Optional[str] = None
-
-    system_prompt: Optional[str] = None
-    next_step_prompt: Optional[str] = None
-
-    llm: Optional[AsyncBaseChatCOTModel] = Field(...)
-    memory: AsyncMemory = Field(...)
-    state: AgentState = AgentState.IDLE
-
-    max_steps: int = 10
-    current_step: int = 0
+    """ReAct模式的代理基类，实现"思考-行动"循环"""
 
     @abstractmethod
     async def think(self) -> bool:
