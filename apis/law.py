@@ -128,13 +128,15 @@ async def key_person_warning_endpoint(input: lawqa, llm: AsyncBaseChatCOTModel =
 async def analysis_report_endpoint(input: lawqa, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     """分析报告生成模型"""
     system_prompt = "你是一个专业的矛盾数据分析师，负责生成区域数据分析报告。请根据用户提供的矛盾纠纷数据，生成全面的分析报告。分析应包括时间趋势、区域分布、类型等维度，对现状及治理结果进行解读总结，挖掘工作薄弱环节，并给出市级政法委工作建议。"
-    
+    query_templat = "{msg}"
+
     async def generate():
         async for data in generate_analysis(
             msg=input.msg, 
             history=input.history, 
             use_cot_model=input.use_cot_model, 
             system_prompt=system_prompt,
+            query_templat=query_templat,
             llm=llm,
             cot_llm=cot_llm
         ):

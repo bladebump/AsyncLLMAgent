@@ -53,6 +53,8 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
     history = request.history
     if len(history) == 0:
         history.append({'role': "system", 'content': system_prompt})
+    elif history[0]['role'] != "system":
+        history.insert(0, {'role': "system", 'content': system_prompt})
     
     # 构建包含操作记录的用户消息
     user_msg = f"""
@@ -70,7 +72,9 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
             all_answer += resp
             yield f"data: {json.dumps({'answer': all_answer})}\n\n"
 
-        # 更新历史记录
+        # pop system message
+        history.pop(0)
+        # 使得history为原始输入
         history.pop()
         history.append({'role': "user", 'content': request.question})
         history.append({'role': "assistant", 'content': all_answer})

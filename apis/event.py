@@ -37,6 +37,7 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
    - event 之间不能有时间重叠，必须按时间顺序排列
    - 用户输入通常以回车键结束，但要注意特殊场景（如 vim 编辑模式）
    - 对于长输出，可以适当总结而不是完整展示
+   - 如果命令失败了，请在输出中总结出有效信息，包括系统的关键提示，或者系统的建议。
 
 # 输出格式
 请以 YAML 格式输出分析结果，每个 event 包含以下字段：
