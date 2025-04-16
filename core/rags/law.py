@@ -1,5 +1,6 @@
 from core.rags.base import BaseRag
 from core.config import config
+from core.schema import Message
 
 class LawRag(BaseRag):
     """问答场景下的召回"""
@@ -11,7 +12,8 @@ class LawRag(BaseRag):
     async def search_for_docs(self) -> list:
         """获取查询文档"""
         query = self.query_template.format(query=self.query)
-        _, resp = await self.llm.chat(prompt=query)
+        self.messages.append(Message.user_message(content=query))
+        _, resp = await self.llm.chat(messages=self.messages)
         query_list = resp.split("\n")
 
         query_list = [query for query in query_list if (query != "") and (len(query) >= 1)]

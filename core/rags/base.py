@@ -3,6 +3,7 @@ from core.llms.base import AsyncBaseChatCOTModel
 from core.vector.base import VectorStoreBase, Document
 from core.embeddings.base import EmbeddingAgent
 from core.ranks.base import AsyncRankAgent
+from core.schema import Message
 import re
 from typing import List, Dict, Tuple, Any, Optional
 from utils.log import logger
@@ -15,6 +16,7 @@ class BaseRag(ABC):
                  text_embedder: EmbeddingAgent, 
                  vector_store: VectorStoreBase, 
                  department: List[str] | None = None, 
+                 messages: List[Message] | None = None,  
                  llm: AsyncBaseChatCOTModel | None = None,
                  reranker: AsyncRankAgent | None = None):
         self.query = query
@@ -22,6 +24,7 @@ class BaseRag(ABC):
         self.department = department
         self.text_embedder = text_embedder
         self.vector_store = vector_store
+        self.messages = messages.copy() if messages else []
         self.llm = llm
         self.reranker = reranker
     
