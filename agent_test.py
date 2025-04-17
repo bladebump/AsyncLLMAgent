@@ -2,7 +2,7 @@ from core.agent import ToolCallAgent, SummaryToolCallAgent
 import asyncio
 from core.config import config
 from core.llms import OpenAICoT
-from core.tools import GetWeather, RAGTool
+from core.tools import GetWeather, RAGTool, MCPClients, Terminate
 from core.mem import ListMemory
 from core.schema import AgentDone
 from core.embeddings.silicon_agent import SiliconEmbeddingAgent
@@ -40,16 +40,19 @@ async def main():
         api_key=config.reranker.api_key,
         model=config.reranker.model,
     )
-    assistant.available_tools.add_tool(RAGTool(
-        description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
-        milvus_client=milvus,
-        collection_name="law",
-        llm=llm,
-        text_embedder=embedding,
-        reranker=reranker
-    ))
-    assistant.available_tools.add_tool(GetWeather())
-    queue = await assistant.run_stream("杭州天气如何")
+    mcp = MCPClients()
+    await mcp.connect_sse("https://mcp-8b5eddad-053e-451b.api-inference.modelscope.cn/sse")
+    # assistant.available_tools.add_tool(RAGTool(
+    #     description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
+    #     milvus_client=milvus,
+    #     collection_name="law",
+    #     llm=llm,
+    #     text_embedder=embedding,
+    #     reranker=reranker
+    # ))
+    assistant.available_tools = mcp
+    assistant.available_tools.add_tool(Terminate())
+    queue = await assistant.run_stream("你有哪些函数可用")
     
     while True:
         chunk = await queue.get()

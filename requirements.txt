@@ -6,3 +6,4 @@ aiohttp
 python-multipart
 json5
 pyyaml
+mcp[cli]

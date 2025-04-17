@@ -6,5 +6,6 @@ from .bash import Bash
 from .planning import PlanningTool
 from .summarize import Summarize
 from .rag_tool import RAGTool
+from .mcp import MCPClients
 
-__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "GetWeather", "Bash", "PlanningTool", "Summarize", "RAGTool"]
+__all__ = ["BaseTool", "ToolResult", "CLIResult", "ToolFailure", "ToolCollection", "Terminate", "GetWeather", "Bash", "PlanningTool", "Summarize", "RAGTool", "MCPClients"]
