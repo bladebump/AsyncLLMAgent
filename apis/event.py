@@ -37,7 +37,9 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
    - event 之间不能有时间重叠，必须按时间顺序排列
    - 用户输入通常以回车键结束，但要注意特殊场景（如 vim 编辑模式）
    - 对于长输出，可以适当总结而不是完整展示
-   - 如果命令失败了，请在输出中总结出有效信息，包括系统的关键提示，或者系统的建议。
+   - 如果命令失败了，请在输出中总结出有效信息，包括系统的关键提示，或者系统的建议
+   - 将相关的连续操作合并为一个事件，例如：命令输入+Tab补全+回车执行应合并为一个完整事件
+   - 命令输入可能包含特殊按键，如Tab补全(\\t)、方向键等，应将这些视为单个命令的一部分
 
 # 输出格式
 请以 YAML 格式输出分析结果，每个 event 包含以下字段：
@@ -60,7 +62,8 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 3. 注意识别特殊场景，如交互式程序、编辑模式等
 4. 输出的值使用中文
 5. 如果存在event，则输出格式必须严格符合YAML格式，不要包含其他内容，不存在event则输出无
-6. 输出中不应该存在制表符和不可见字符
+6. 输出中不应该显示控制字符（如\\r\\n），应清理这些字符或替换为适当的描述
+7. 对于Tab补全等操作，应将其视为命令输入的一部分，与后续执行合并为一个事件
 """
     use_llm = cot_llm if events.use_cot_model else llm
     _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
