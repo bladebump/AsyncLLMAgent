@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 import base64
+from utils.log import logger
 
 class Frame(BaseModel):
     timestamp: int
@@ -19,24 +20,41 @@ class FrameParser:
     def __init__(self, frame_list: list[Frame]):
         self.frame_list = frame_list
 
+    def decode_frame(self):
+        frame_list = []
+        for frame in self.frame_list:
+            try:
+                data = base64.b64decode(frame.data).decode("utf-8")
+            except Exception as e:
+                logger.info(f"decode error, use latin-1 decode, {frame.data}")
+                data = base64.b64decode(frame.data).decode("latin-1")
+            frame_list.append(Frame(
+                timestamp=frame.timestamp,
+                data=data,
+                is_from_client=frame.is_from_client
+            ))
+        self.frame_list = frame_list
+
     def parse(self):
+        self.decode_frame()
         frame_list = []
         for frame in self.frame_list:
             frame_list.append({
                 "timestamp": frame.timestamp,
-                "data": base64.b64decode(frame.data).decode("utf-8"),
+                "data": frame.data,
                 "is_from_client": frame.is_from_client
             })
         return frame_list
     
 class OutputParser(FrameParser):
     def parse(self):
+        self.decode_frame()
         frame_list = []
         for frame in self.frame_list:
             if not frame.is_from_client:
                 frame_list.append({
                     "timestamp": frame.timestamp,
-                    "data": base64.b64decode(frame.data).decode("utf-8")
+                    "data": frame.data
                 })
 
 class MergeParser(FrameParser):
@@ -99,16 +117,6 @@ class MergeParser(FrameParser):
         )
         
         return looks_like_command
-
-    def decode_frame(self):
-        frame_list = []
-        for frame in self.frame_list:
-            frame_list.append(Frame(
-                timestamp=frame.timestamp,
-                data=base64.b64decode(frame.data).decode("utf-8"),
-                is_from_client=frame.is_from_client
-            ))
-        self.frame_list = frame_list
 
     def parse(self):
         self.decode_frame()

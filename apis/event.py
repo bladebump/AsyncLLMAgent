@@ -11,7 +11,7 @@ class EventPost(BaseModel):
     frame_list: list[Frame]
     use_cot_model: bool = False
     request_id: str
-    parser_type: ParserType = ParserType.ALL
+    parser_type: ParserType = ParserType.MERGE
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
