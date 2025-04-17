@@ -70,9 +70,11 @@ class MergeParser(FrameParser):
     def handle_special_key(self, key_frame: Frame):
         # 处理退格键
         if b'\x7f'.decode() in key_frame.data:
-            if self.merge_buffer_cursor > 0:
-                self.merge_buffer.pop(self.merge_buffer_cursor - 1)
-                self.merge_buffer_cursor -= 1
+            n = key_frame.data.count(b'\x7f'.decode())
+            if self.merge_buffer_cursor >= n:
+                for _ in range(n):
+                    self.merge_buffer.pop(self.merge_buffer_cursor - 1)
+                    self.merge_buffer_cursor -= 1
             return True
         # 处理方向键左右
         elif b'\x1b[C'.decode() in key_frame.data:  # 右方向键
