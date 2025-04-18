@@ -11,6 +11,7 @@ from core.rags.law import LawRag
 from core.ranks import AsyncRankAgent
 from fastapi import UploadFile, File
 import httpx
+from core.config import config
 
 law_router = APIRouter(prefix="/law")
 
@@ -151,5 +152,5 @@ async def asr_endpoint(file: UploadFile = File(...)):
     """语音识别"""
     async with httpx.AsyncClient() as client:
         files = {"file": (file.filename, await file.read(), file.content_type)}
-        response = await client.post("http://127.0.0.1:9345/asr_recognition", files=files)
+        response = await client.post(config.asr.url, files=files)
         return response.json()
