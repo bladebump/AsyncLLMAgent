@@ -9,6 +9,8 @@ from core.embeddings.base import EmbeddingAgent
 from core.llms.base import AsyncBaseChatCOTModel
 from core.rags.law import LawRag
 from core.ranks import AsyncRankAgent
+from fastapi import UploadFile, File
+import httpx
 
 law_router = APIRouter(prefix="/law")
 
@@ -143,3 +145,11 @@ async def analysis_report_endpoint(input: lawqa, llm: AsyncBaseChatCOTModel = De
             yield f"data: {json.dumps(data)}\n\n"
     
     return StreamingResponse(generate(),media_type="text/event-stream")
+
+@law_router.post("/asr")
+async def asr_endpoint(file: UploadFile = File(...)):
+    """语音识别"""
+    async with httpx.AsyncClient() as client:
+        files = {"file": (file.filename, await file.read(), file.content_type)}
+        response = await client.post("http://127.0.0.1:9345/asr_recognition", files=files)
+        return response.json()
