@@ -1,0 +1,46 @@
+# 1. 基础信息
+basic_info:
+  id: "题目ID" # 如无明确ID，可填"未提供"或从上下文推断
+  title: "题目名称" # 从报告标题或内容中提取
+  category: "misc" # 根据内容判断类别：web/misc/crypto/pwn/reverse/iot
+  difficulty: "中等" # 根据内容评估难度：入门/简单/中等/困难/专家
+  knowledge_points: # 列出报告中涉及的主要技术知识点
+    - "知识点1" 
+    - "知识点2"
+
+# 2. 题目详情
+problem:
+  description: | # 从报告中提取原始题目描述
+    题目的原始描述文本
+  initial_analysis: | # 分析题目的切入点和思路
+    对题目的初步理解和分析方向
+  objective: | # 明确目标是什么
+    需要找到的flag或信息
+
+# 3. 解题路径
+solution_path: # 将报告的步骤转换为清晰的解题路径
+  - step_name: "步骤1名称" # 为每个步骤取一个简短描述性的名称
+    description: | # 详细说明这一步要做什么
+      详细操作内容
+    input: | # 这一步骤的输入命令或操作
+      输入的命令或操作
+    expected_results: | # 这一步骤执行后应该看到的结果
+      期望得到的结果
+    key_observations: | # 这一步骤中需要特别注意的点
+      关键观察点
+  
+  # 后续步骤按相同格式添加...
+
+# 4. 元数据标签
+metadata_tags:
+  technical_tags: # 技术类型标签
+    - "相关技术1"
+    - "相关技术2"
+  
+  tool_tags: # 使用的工具标签
+    - "工具1"
+    - "工具2"
+  
+  skill_tags: # 需要的技能标签
+    - "技能1"
+    - "技能2"
