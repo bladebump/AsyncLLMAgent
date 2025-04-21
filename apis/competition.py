@@ -13,9 +13,7 @@ class WPFormat(BaseModel):
 
 @competition_router.post("/wp_format")
 async def wp_format(wp_format: WPFormat, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
-    """
-    格式化WP
-    """
+    """格式化WriteUp"""
     logger.debug(f"收到WP格式化请求: {wp_format}")
     llm = cot_llm if wp_format.use_cot_model else llm
     prompt = f"""请将以下实验报告（writeup/wp）转换为结构化的YAML格式题目信息卡片。

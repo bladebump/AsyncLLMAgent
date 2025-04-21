@@ -96,8 +96,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
                               tool_choice: ToolChoice = ToolChoice.AUTO,
                               **kwargs) -> Message:
         """支持MCP工具调用的对话接口"""
-        if not isinstance(messages[0], dict):
-            messages = self.format_messages(messages)
+        messages = self.format_messages(messages)
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: False | Messages: {messages}')
         response = await self.client.chat.completions.create(
             model=self.model,

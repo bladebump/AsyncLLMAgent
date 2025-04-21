@@ -139,8 +139,8 @@ class AsyncBaseChatCOTModel(AsyncBaseLLMModel):
         # 强制使用消息格式
         assert messages and len(messages) > 0, "Messages cannot be empty"
         
-        if isinstance(messages[0], Message):
-            messages = self.format_messages(messages)
+        
+        messages = self.format_messages(messages)
 
         if stream:
             return await self._chat_stream(messages, stop=stop, **kwargs)

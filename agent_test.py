@@ -40,18 +40,16 @@ async def main():
         api_key=config.reranker.api_key,
         model=config.reranker.model,
     )
-    mcp = MCPClients()
-    await mcp.connect_sse("https://mcp-8b5eddad-053e-451b.api-inference.modelscope.cn/sse")
-    # assistant.available_tools.add_tool(RAGTool(
-    #     description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
-    #     milvus_client=milvus,
-    #     collection_name="law",
-    #     llm=llm,
-    #     text_embedder=embedding,
-    #     reranker=reranker
-    # ))
-    assistant.available_tools = mcp
-    assistant.available_tools.add_tool(Terminate())
+    # mcp = MCPClients()
+    # await mcp.connect_sse("https://mcp-8b5eddad-053e-451b.api-inference.modelscope.cn/sse")
+    assistant.available_tools.add_tool(RAGTool(
+        description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
+        milvus_client=milvus,
+        collection_name="law",
+        llm=llm,
+        text_embedder=embedding,
+        reranker=reranker
+    ))
     queue = await assistant.run_stream("你有哪些函数可用")
     
     while True:
@@ -69,4 +67,6 @@ async def main():
                 print(all_thinking, all_result)
     
 if __name__ == "__main__":
-    asyncio.run(main())
+    get_weather = GetWeather()
+    print(get_weather.to_param())
+    # asyncio.run(main())
