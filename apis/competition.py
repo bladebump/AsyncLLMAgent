@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot
 from utils.log import logger
+import json
+import re
+from apis.competition_utils.schema import Competition, CompetitionBaseInfo
+from apis.competition_utils.check import analyze_competition_completeness, process_user_input
 
 competition_router = APIRouter(prefix="/competition")
 
@@ -35,3 +39,93 @@ async def wp_format(wp_format: WPFormat, llm: AsyncBaseChatCOTModel = Depends(ge
 """
     thinking, response = await llm.chat(prompt,stream=False)
     return {"code": 200, "error": None, "data": {"wp": response, "thinking": thinking}}
+
+class CreateCompetitionRequest(BaseModel):
+    competition: str  # JSON字符串
+    user_input: str
+    history: list[dict]
+    use_cot_model: bool = False
+
+@competition_router.post("/create_competition")
+async def create_competition(createCompetitionRequest: CreateCompetitionRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+    """创建比赛"""
+    logger.debug(f"收到创建竞赛请求: {createCompetitionRequest}")
+    llm = cot_llm if createCompetitionRequest.use_cot_model else llm
+    
+    # 从请求中提取信息
+    competition_json = createCompetitionRequest.competition
+    user_input = createCompetitionRequest.user_input
+    history = createCompetitionRequest.history
+    
+
+    competition_data = json.loads(competition_json) if competition_json else {}    
+    if not competition_data:
+        competition = Competition(baseInfo=CompetitionBaseInfo(), stageList=[])
+    else:
+        competition = Competition.model_validate(competition_data)
+    
+    # 处理用户输入并更新competition对象
+    competition, update_message = await process_user_input(competition, user_input, history, llm)
+    
+    # 检查竞赛配置的完整性，确定下一步需要填写的信息
+    next_step, missing_fields = await analyze_competition_completeness(competition, llm)
+    
+    # 生成引导用户的响应
+    prompt = f"""
+我需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。
+
+当前竞赛配置状态:
+{competition.model_dump_json()}
+
+用户最新输入:
+{user_input}
+
+对话历史:
+{history}
+
+更新信息:
+{update_message}
+
+下一步需要询问的内容:
+{next_step}
+
+未填写的字段:
+{missing_fields}
+
+请生成一个友好的响应，引导用户完成竞赛创建过程。响应应当:
+1. 确认已经填写/更新的内容
+2. 清晰指出下一步需要填写什么内容
+3. 如果需要，提供填写示例或选项
+4. 使用友好的对话语气
+"""
+    
+    thinking, response = await llm.chat(prompt, stream=False)
+    
+    # 判断竞赛是否已经完成创建
+    is_completed = not missing_fields
+    history.append({
+        "role": "user",
+        "content": user_input
+    })
+    history.append({
+        "role": "assistant",
+        "content": response
+    })
+    
+    # 将Competition对象转换为JSON
+    competition_json = competition.model_dump_json()
+    
+    return {
+        "code": 200,
+        "error": None,
+        "data": {
+            "response": response,
+            "thinking": thinking,
+            "is_completed": is_completed,
+            "next_step": next_step,
+            "missing_fields": missing_fields,
+            "competition": competition_json,
+            "history": history
+        }
+    }
+
