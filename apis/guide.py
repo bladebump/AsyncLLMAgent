@@ -81,3 +81,40 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
         yield f"data: {json.dumps({'answer': '<end>', 'history': history})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream") 
+
+class ConversationSummaryRequest(BaseModel):
+    history: list[dict]  # 对话历史记录
+    use_cot_model: bool = False  # 是否使用COT模型
+
+@guide_router.post("/conversation_summary")
+async def conversation_summary(request: ConversationSummaryRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+    """
+    总结对话主题的接口
+    """
+    logger.debug(f"收到对话总结请求: {request}")
+    
+    system_prompt = f"""
+你是一个专业的对话主题分析助手。你的任务是从对话历史中提取出一个对话的主题。
+
+请按照以下要求进行总结：
+1. 识别对话中的主要主题
+2. 提取出一个最能代表对话内容的主题
+3. 主题需要简洁明了,不要超过10个字
+
+输出格式要求：
+- 使用中文
+- 简明扼要
+- 重点突出
+
+对话历史：
+{request.history}
+"""
+    use_llm = cot_llm if request.use_cot_model else llm
+    _, resp = await use_llm.chat(prompt=system_prompt, stream=False, temperature=0.01)
+    return {
+        "code": 200,
+        "error": "",
+        "data": {
+            "summary": resp,
+        }
+    }
