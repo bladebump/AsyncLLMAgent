@@ -1,33 +1,23 @@
 from pydantic import BaseModel, ValidationError
 from core.llms import AsyncBaseChatCOTModel
-from apis.competition_utils.schema import Competition, CTFStage, AWDStage, BTCStage, THEORYStage
+from apis.competition_utils.schema import Competition, CTFGroup, stage_map
 from utils.log import logger
 import re
 import json
-
-stage_map = {
-    "CTF": CTFStage,
-    "AWD": AWDStage,
-    "BTC": BTCStage,
-    "THEORY": THEORYStage
-}
 
 def check_item_missing_field(item: BaseModel, parent_field: str = "") -> list[str]:
     missing_fields = []
     model_class = item.__class__
     for field in model_class.model_fields.keys():
-        if not getattr(item, field):
-            missing_fields.append(f"name:{parent_field}.{field}, description:{model_class.model_fields[field].description}")
+        name = f"{parent_field}.{field}" if parent_field else field
+        if getattr(item, field) is None:
+            missing_fields.append(f"{name}:{model_class.model_fields[field].description}")
         elif isinstance(getattr(item, field), BaseModel):
-            missing_fields.extend(check_item_missing_field(getattr(item, field), parent_field=f"{parent_field}.{field}"))
+            missing_fields.extend(check_item_missing_field(getattr(item, field), parent_field=name))
         elif isinstance(getattr(item, field), list):
-            for item in getattr(item, field):
+            for index, item in enumerate(getattr(item, field)):
                 if isinstance(item, BaseModel):
-                    missing_fields.extend(check_item_missing_field(item, parent_field=f"{parent_field}.{field}"))
-        elif isinstance(getattr(item, field), dict):
-            for key, value in getattr(item, field).items():
-                if isinstance(value, BaseModel):
-                    missing_fields.extend(check_item_missing_field(value, parent_field=f"{parent_field}.{field}"))
+                    missing_fields.extend(check_item_missing_field(item, parent_field=f"{name}[{index}]"))
     return missing_fields
 
 async def analyze_competition_completeness(competition: Competition, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
@@ -46,7 +36,7 @@ async def analyze_competition_completeness(competition: Competition, llm: AsyncB
     missing_fields = check_item_missing_field(competition)
 
     prompt = f"""
-根据下面列出的竞赛配置中缺失的字段，生成一个清晰的引导语句，告诉用户下一步应该填写什么内容。
+根据下面列出的竞赛配置中缺失的字段，你需要确定下一步用户填写内容，并按照严格的格式返回回答。
 
 缺失的字段:
 {missing_fields}
@@ -54,11 +44,26 @@ async def analyze_competition_completeness(competition: Competition, llm: AsyncB
 当前竞赛配置:
 {competition_dict}
 
-请提供一个简洁的引导语句，说明下一步用户需要填写什么内容。不需要一次性列出所有缺失字段，只需专注于下一个逻辑步骤。
-其中阶段可以有很多个，如果已经不存在缺失字段了，任然可以添加新的阶段。或者竞赛就创建完成了。
-如果用户说竞赛已经创建完成了，请返回"竞赛配置已完成，可以提交创建"。
+【格式要求】
+请严格按照以下两种格式之一回答:
+
+格式一：如果竞赛已完成配置，必须只返回如下文本（不要添加其他任何内容）:
+竞赛配置完成
+
+格式二：如果竞赛配置未完成，返回一个简洁的引导语句，说明下一步用户需要填写什么内容。
+
+【判断标准】
+* 如果所有必要字段都已填写（无缺失字段）且至少有一个赛程 -> 返回"竞赛配置完成"
+* 如果用户明确表示完成创建 -> 返回"竞赛配置完成"
+* 如果还有缺失字段 -> 返回下一步引导提示
+
+重要提示：如果你认为配置已完成，必须严格返回"竞赛配置完成"这五个字，不要添加任何其他字符、标点或说明。
 """
     thinking, next_step = await llm.chat(prompt, stream=False)
+    
+    # 检查返回的内容，如果包含"竞赛配置完成"就标准化
+    if "竞赛配置完成" in next_step:
+        next_step = "竞赛配置完成"
     
     return next_step, missing_fields
 
@@ -75,21 +80,10 @@ async def process_user_input(competition: Competition, user_input: str, history:
     Returns:
         tuple: (更新后的竞赛对象, 更新消息)
     """
-    if not user_input.strip():
-        return competition, "用户没有提供新的输入"
-    
     # 将竞赛对象转换为字典
     competition_dict = competition.model_dump(mode='python')
-    
-    # 确保基本结构存在
-    if not competition_dict.get("baseInfo"):
-        competition_dict["baseInfo"] = {}
-    if not competition_dict.get("stageList"):
-        competition_dict["stageList"] = []
-    
     # 分析当前竞赛配置的缺失字段
     missing_fields = check_item_missing_field(competition)
-    
     # 使用LLM分析用户输入，判断用户意图并更新竞赛对象
     prompt = f"""
 我需要分析用户输入，并将其映射到竞赛配置的相应字段。
@@ -112,7 +106,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 3. 格式化后的结果应该是一个JSON对象，包含以下字段:
    - "field_to_update": 需要更新的字段路径，使用点表示法，例如 "baseInfo.name" 或 "stageList[0].config.openType"
    - "update_value": 更新的值，应该是适合该字段的类型
-   - "action": 更新操作类型，可以是 "update" (更新现有字段), "add" (添加新阶段), "remove" (删除阶段)
+   - "action": 更新操作类型，可以是 "update" (更新现有字段), "add" (添加新阶段), "remove" (删除阶段), "add_group" (添加CTF分组)，"add_corpus" (添加题库)
    - "description": 一句话描述更新内容
 
 如果用户输入无法映射到任何字段或者无法确定用户意图，请返回:
@@ -122,9 +116,13 @@ async def process_user_input(competition: Competition, user_input: str, history:
 1. 如果用户想添加新阶段，需要先确定阶段类型（CTF、AWD、BTC、THEORY）:
    - 阶段类型说明：CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）、THEORY（理论赛）
    - update_value 只需要放入阶段类型，不需要包含其他字段
-2. 如果用户想删除阶段，应该识别要删除的阶段索引
-3. 如果用户输入包含多个字段的信息，应该生成多个更新操作，格式为一个数组
-4. 如果这是创建竞赛的初始阶段，用户可能会提供竞赛名称和简介等基本信息
+2. 如果用户想添加一个CTF的分组的话
+   - update_value 只需要放入"CTF_GROUP"，不需要包含其他字段
+3. 如果用户想添加一个题库的话
+   - update_value 需要放入的是题目要求描述。包含题目的类型和难度相关，或者是技能要求等描述
+4. 如果用户想删除阶段，应该识别要删除的阶段索引
+5. 如果用户输入包含多个字段的信息，应该生成多个更新操作，格式为一个数组
+6. 如果这是创建竞赛的初始阶段，用户可能会提供竞赛名称和简介等基本信息
 
 请尽量精确解析用户意图，即使用户输入的信息不完整或者格式不规范。
 """
@@ -174,7 +172,13 @@ async def process_user_input(competition: Competition, user_input: str, history:
                         stage_obj = stage_class()
                         competition_dict["stageList"].append(stage_obj)
                         update_messages.append(f"已添加: {description}")
-                update_messages.append(f"添加失败: 不允许添加其他字段，只能添加阶段")
+                    else:
+                        update_messages.append(f"添加失败: 不允许添加{stage_type}阶段")
+            elif action == "add_group":
+                if field_path == "groupList":
+                    group_obj = CTFGroup()
+                    competition_dict["groupList"].append(group_obj)
+                    update_messages.append(f"已添加: {description}")
             elif action == "remove":
                 if field_path.startswith("stageList[") and field_path.endswith("]"):
                     try:
@@ -188,6 +192,12 @@ async def process_user_input(competition: Competition, user_input: str, history:
                         update_messages.append(f"删除失败: 无效的索引")
                 else:
                     update_messages.append(f"删除失败: 不允许删除字段，只能删除阶段")
+            elif action == "add_corpus":
+                updated = choose_corpus(competition_dict, field_path, update_value)
+                if updated:
+                    update_messages.append(f"已添加: {description}")
+                else:
+                    update_messages.append(f"添加失败: {description}")
 
 
         updated_competition = Competition.model_validate(competition_dict)
@@ -299,4 +309,12 @@ def update_field_by_path(data: dict, path: str, value) -> bool:
         current[last_part] = value
     
     return True
+
+def choose_corpus(competition_dict: dict, field_path: str, update_value: str) -> bool:
+    """
+    选择题库
+    """
+    logger.debug(f"选择题库: {update_value}")
+    return True
+    
 

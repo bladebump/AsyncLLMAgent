@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel
 from core.llms import AsyncBaseChatCOTModel
 from .utils import get_llm, get_llm_cot
 from utils.log import logger
 import json
-import re
 from apis.competition_utils.schema import Competition, CompetitionBaseInfo
 from apis.competition_utils.check import analyze_competition_completeness, process_user_input
+from fastapi.responses import StreamingResponse
 
 competition_router = APIRouter(prefix="/competition")
 
@@ -57,21 +57,29 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     user_input = createCompetitionRequest.user_input
     history = createCompetitionRequest.history
     
-
     competition_data = json.loads(competition_json) if competition_json else {}    
     if not competition_data:
         competition = Competition(baseInfo=CompetitionBaseInfo(), stageList=[])
     else:
         competition = Competition.model_validate(competition_data)
-    
+    is_completed = False
     # 处理用户输入并更新competition对象
     competition, update_message = await process_user_input(competition, user_input, history, llm)
     
     # 检查竞赛配置的完整性，确定下一步需要填写的信息
     next_step, missing_fields = await analyze_competition_completeness(competition, llm)
-    
-    # 生成引导用户的响应
-    prompt = f"""
+    if next_step == "竞赛配置完成":
+        is_completed = True
+        prompt = f"""
+竞赛配置已经完成，可以提交创建。以下是您的竞赛配置信息：
+
+# 竞赛信息
+{competition.model_dump()}
+
+请确认以上信息无误，如需修改可以告诉我，或者直接提交创建。
+"""
+    else:
+        prompt = f"""
 我需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。
 
 当前竞赛配置状态:
@@ -98,34 +106,34 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
 3. 如果需要，提供填写示例或选项
 4. 使用友好的对话语气
 """
-    
-    thinking, response = await llm.chat(prompt, stream=False)
-    
-    # 判断竞赛是否已经完成创建
-    is_completed = not missing_fields
-    history.append({
-        "role": "user",
-        "content": user_input
-    })
-    history.append({
-        "role": "assistant",
-        "content": response
-    })
-    
     # 将Competition对象转换为JSON
     competition_json = competition.model_dump_json()
-    
-    return {
-        "code": 200,
-        "error": None,
-        "data": {
-            "response": response,
-            "thinking": thinking,
+    async def generate():
+        all_answer = ""
+        thinking = ""
+        async for chunk_thinking, chunk_response in await llm.chat(prompt, stream=True):
+            thinking += chunk_thinking
+            all_answer += chunk_response
+            if createCompetitionRequest.use_cot_model:
+                yield f"data: {json.dumps({'answer': all_answer, 'thinking': thinking})}\n\n"
+            else:
+                yield f"data: {json.dumps({'answer': all_answer})}\n\n"
+        
+        # 更新历史记录
+        history.append({
+            "role": "user",
+            "content": user_input
+        })
+        history.append({
+            "role": "assistant", 
+            "content": all_answer
+        })
+        yield f"data: {json.dumps({
+            "answer": "<end>",
             "is_completed": is_completed,
-            "next_step": next_step,
-            "missing_fields": missing_fields,
             "competition": competition_json,
             "history": history
-        }
-    }
+        })}\n\n"
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
