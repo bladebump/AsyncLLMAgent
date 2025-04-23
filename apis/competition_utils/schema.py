@@ -1,6 +1,7 @@
 # 给java接口用，所以命名用小驼峰
 from pydantic import BaseModel, Field
 from enum import Enum
+import json
 
 class ModeType(str, Enum):
     CTF = "CTF"
@@ -30,29 +31,58 @@ class CompetitionStage(BaseModel):
     mode: str | None = Field(description="阶段类型，可以是CTF、AWD、BTC或THEORY", default=None)
 
 class CTFGroup(BaseModel):
-    name: str | None = Field(description="组名，例如'WEB'、'RE'、'PWN'等", default=None)
-    corpusId: list[int] | None = Field(description="题库ID，表示此组题目来自哪些题库，是一个列表", default=None)
+    name: str | None = Field(description="组名，一般为'WEB'、'RE'、'PWN'，一般和这个组的题目类型相同", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，添加方式为告诉需求，比如什么难度几道题", default=None)
 
 class CTFConfig(BaseModel):
     openType: str | None = Field(description="开题方式，ALL(全部开放)、SEQUENCE(按照顺序开放)", default=None)
     canReset: bool | None = Field(description="是否开放选手重制独占靶机，True表示可以重置，False表示不能", default=None)
     resetNum: int | None = Field(description="重制次数，设置允许重置的最大次数", default=None)
 
-class ScopeData(BaseModel):
-    maxScore: int | None = Field(description="最大分值，设置题目的最高分值", default=None)
-    minScore: int | None = Field(description="最小分值，设置题目的最低分值", default=None)
-    scoreRate: int | None = Field(description="得分率，影响分值变化的比例", default=None)
+scope_data_str = """PY（防止作弊）：
+{
+     "type": "PY",
+     "data": {
+            "maxScore": 500,
+            "minScore": 200,
+            "scoreRate": 10,
+     }
+}
+
+普通模式(DEFAULT):
+{
+    "type": "DEFAULT",
+    "data": {
+        "rewardType": "ratio", // "score" 分数的模式
+        "rewardData": {
+            "fst": 20,
+            "sec": 10,
+            "trd": 5,
+         }
+    }
+}
+
+递减模式(RATIO)
+{
+    "type": "REDUCE",
+    "data": {
+        "reduceType": "ratio",   // "score" 分数的模式
+        "reduce": 10,
+        "baseLine": 30
+    }
+}
+"""
 
 class ScopePolicy(BaseModel):
     type: str | None = Field(description="计分方式，PY（防止作弊）、DEFAULT（普通模式）、REDUCE（递减模式）", default=None)
-    data: ScopeData = Field(description="数据，包含计分所需的具体数据", default_factory=ScopeData)
+    data: dict | None = Field(description=scope_data_str, default=None)
 
 class CTFStage(CompetitionStage):
     mode: ModeType = ModeType.CTF
     answerMode: str | None = Field(description="答题模式，BREAK或者FIX", default=None)
     config: CTFConfig = Field(description="配置，CTF阶段的具体配置", default_factory=CTFConfig)
     scopePolicy: ScopePolicy = Field(description="计分方式，设置此阶段的计分规则", default_factory=ScopePolicy)
-    groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组", default=None)
+    groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组，是一个列表", default=None)
 
 class AWDConfig(BaseModel):
     initPoint: int | None = Field(description="初始分值，设置参赛者的初始分数", default=None)
@@ -107,3 +137,15 @@ class Competition(BaseModel):
                     stage_type = stage["mode"]
                     obj["stageList"][i] = stage_map[stage_type].model_validate(stage)
         return super().model_validate(obj, *args, **kwargs)
+        
+    def model_dump(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        if self.stageList:
+            data["stageList"] = [stage.model_dump(**kwargs) for stage in self.stageList]
+        return data
+    
+    def model_dump_json(self, **kwargs):
+        data = self.model_dump(**kwargs)
+        if self.stageList:
+            data["stageList"] = [stage.model_dump(**kwargs) for stage in self.stageList]
+        return json.dumps(data)
