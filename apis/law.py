@@ -20,9 +20,8 @@ async def generate_analysis(msg: str, history: list, use_cot_model: bool, system
     """通用分析生成函数"""
     prompt = query_templat.format(msg=msg)
     
-    if len(history) == 0:
-        history.append({'role': "system", 'content': system_prompt})
-    history.append({'role': "user", 'content': prompt})
+    history.insert(0, {'role': "system", 'content': system_prompt}) # 插入系统提示词
+    history.append({'role': "user", 'content': prompt}) # 插入用户输入
 
     all_thinking = ""
     all_answer = ""
@@ -36,7 +35,8 @@ async def generate_analysis(msg: str, history: list, use_cot_model: bool, system
             all_answer += resp
             yield {"answer": all_answer}
 
-    history.pop()
+    history.pop(0) # 移除系统提示词
+    history.pop() # 移除用户输入
     history.append({'role': "user", 'content': msg})
     history.append({'role': "assistant", 'content': all_answer})
     result = {"answer": "<end>", "history": history}
