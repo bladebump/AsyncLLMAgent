@@ -7,6 +7,7 @@ import json
 from apis.competition_utils.schema import Competition, CompetitionBaseInfo
 from apis.competition_utils.check import analyze_competition_completeness, process_user_input
 from fastapi.responses import StreamingResponse
+from core.schema import Message
 
 competition_router = APIRouter(prefix="/competition")
 
@@ -50,6 +51,7 @@ class CreateCompetitionRequest(BaseModel):
 async def create_competition(createCompetitionRequest: CreateCompetitionRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     """创建比赛"""
     logger.debug(f"收到创建竞赛请求: {createCompetitionRequest}")
+    system_prompt = f"你是一个竞赛创建助手，需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。要创建的竞赛为网络安全相关竞赛，用来体现选手的网络安全攻防能力。通常竞赛分为CTF、AWD、BTC，每种类型有不同的赛题设置和答题模式。"
     llm = cot_llm if createCompetitionRequest.use_cot_model else llm
     
     # 从请求中提取信息
@@ -80,17 +82,11 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
 """
     else:
         prompt = f"""
-你是竞赛创建助手，需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。
-竞赛是网络安全相关竞赛，用来体现选手的网络安全攻防能力。
-
 当前竞赛配置状态:
 {competition.model_dump_json()}
 
 用户最新输入:
 {user_input}
-
-对话历史:
-{history}
 
 更新信息:
 {update_message}
@@ -110,9 +106,11 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     # 将Competition对象转换为JSON
     competition_json = competition.model_dump_json()
     async def generate():
+        history.insert(0, Message.system_message(system_prompt))
+        history.append(Message.user_message(prompt))
         all_answer = ""
         thinking = ""
-        async for chunk_thinking, chunk_response in await llm.chat(prompt, stream=True):
+        async for chunk_thinking, chunk_response in await llm.chat(messages=history, stream=True):
             thinking += chunk_thinking
             all_answer += chunk_response
             if createCompetitionRequest.use_cot_model:
@@ -120,6 +118,8 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
             else:
                 yield f"data: {json.dumps({'answer': all_answer})}\n\n"
         
+        history.pop(0)
+        history.pop()
         # 更新历史记录
         history.append({
             "role": "user",

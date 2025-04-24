@@ -255,6 +255,12 @@ def choose_corpus(competition_dict: dict, field_path: str, update_value: str) ->
                 answerModel = item.get("answerModel")
                 mode = item.get("mode")
                 num = item.get("num")
+                if not answerModel in corpus_data[mode]:
+                    answerModel = random.choice(list(corpus_data[mode].keys()))
+                if not classify in corpus_data[mode][answerModel]:
+                    classify = random.choice(list(corpus_data[mode][answerModel].keys()))
+                if not difficulty in corpus_data[mode][answerModel][classify]:
+                    difficulty = random.choice(list(corpus_data[mode][answerModel][classify].keys()))
                 corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
         current["corpusId"] = corpus_list
         return True
