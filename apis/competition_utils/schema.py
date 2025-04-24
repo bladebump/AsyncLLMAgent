@@ -18,7 +18,7 @@ class CompetitionBaseInfo(BaseModel):
     maxPlayer: int | None = Field(description="最大参赛人数，设置竞赛可容纳的最大参赛人数", default=None)
 
 class EnterCondition(BaseModel):
-    conditionType: str | None = Field(description="当前阶段的进入条件类型：NONE(无条件)、FRACTION(分值条件)、RANKING(排名条件)", default=None)
+    conditionType: str | None = Field(description="当前阶段的进入条件类型：NONE(无条件)、FRACTION(分值条件)、RANKING(排名条件)。", default=None)
     participantLimit: int | None = Field(description="当前阶段的进入条件为NONE和FRACTION时，表示进入人数和团队数限制，0为不设限制。当进入条件为RANKING时，表示进入排名限制，前N名可以进入", default=None)
 
 class CompetitionStage(BaseModel):
@@ -87,18 +87,29 @@ class CTFStage(CompetitionStage):
 class AWDConfig(BaseModel):
     initPoint: int | None = Field(description="初始分值，设置参赛者的初始分数", default=None)
     roundTime: int | None = Field(description="每轮时长，单位为分钟", default=None)
-    isFreeReset: bool | None = Field(description="是否免费重置，True表示可以免费重置，False表示需要消耗分数", default=None)
+    isFreeReset: bool | None = Field(description="是否免费重置，True表示可以免费重置，但有次数限制，超出会扣分，False重置不需要扣分", default=None)
+    freeResetQty: int | None = Field(description="免费重置次数", default=None)
+    resetReduceScore: int | None = Field(description="当不能免费重置的时候，重置需要扣除的分数", default=None)
     resetProtectionTime: int | None = Field(description="重置保护时间，单位为分钟，设置重置后的保护时间", default=None)
     isResettable: bool | None = Field(description="是否开放选手端重制靶机，True表示可以重置，False表示不能", default=None)
 
+class AWDScorePolicyData(BaseModel):
+    attackScore: int | None = Field(description="攻击得分", default=None)
+    defendScore: int | None = Field(description="防御得分", default=None)
+    unavailableScore: int | None = Field(description="不可用得分", default=None)
+
+class AWDScorePolicy(BaseModel):
+    type: str | None = Field(description="计分方式，SCORE(得分)、RATIO(比例)", default=None)
+    data: AWDScorePolicyData | None = Field(description="计分方式的具体配置", default_factory=AWDScorePolicyData)
+
 class AWDStage(CompetitionStage):
     mode: ModeType = ModeType.AWD
-    scoreType: str | None = Field(description="计分方式，例如'攻击得分'、'防御得分'、'综合得分'等", default=None)
+    scorePolicy: AWDScorePolicy = Field(description="计分方式，设置AWD阶段的计分方式", default_factory=AWDScorePolicy)
     config: AWDConfig = Field(description="配置，AWD阶段的具体配置", default_factory=AWDConfig)
-    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表,AWD一般只有一个题目", default=None)
 
 class BTCScorePolicy(BaseModel):
-    additional: bool | None = Field(description="计分方式的额外说明，前三通关额外加分", default=None)
+    additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=None)
 
 class BTCStage(CompetitionStage):
     mode: ModeType = ModeType.BTC
@@ -106,13 +117,18 @@ class BTCStage(CompetitionStage):
     corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表", default=None)
 
 class THEORYConfig(BaseModel):
-    paperId: int | None = Field(description="试卷ID，关联到具体的理论试卷", default=None)
-    mode: str | None = Field(description="答题模式，例如'限时作答'、'自由作答'等", default=None)
     isShowAllStem: bool | None = Field(description="是否显示所有题，True表示一次性显示所有题目，False表示逐题显示", default=None)
     isRandomStem: bool | None = Field(description="是否随机出题，True表示随机顺序，False表示固定顺序", default=None)
     canSubmitPaper: bool | None = Field(description="是否开放交卷，True表示可以主动交卷，False表示只能等时间结束", default=None)
     canReviewScore: bool | None = Field(description="是否开放查分，True表示可以查看得分，False表示不能", default=None)
     canReviewPaper: bool | None = Field(description="是否开放查卷，True表示可以查看试卷和答案，False表示不能", default=None)
+    canReviewAnalysis: bool | None = Field(description="是否开放查看解析，True表示可以查看解析，False表示不能", default=None)
+    paperId: int | None = Field(description="试卷ID，关联到具体的理论试卷", default=None)
+    paperName: str | None = Field(description="试卷名称，表示此阶段试卷的名称", default=None)
+    mode: str | None = Field(description="答题模式，REGULAR_SCOPE(固定时间开始结束)、REGULAR_SCOPE_TIME(固定答题时长)", default=None)
+    useTime: int | None = Field(description="答题时长，单位为分钟。REGULAR_SCOPE_TIME选手答题的时间是受到useTime的限制。如果是REGULAR_SCOPE，则useTime无效", default=None)
+    startTime: str | None = Field(description="开始时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
+    endTime: str | None = Field(description="结束时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
 
 class THEORYStage(CompetitionStage):
     mode: ModeType = ModeType.THEORY

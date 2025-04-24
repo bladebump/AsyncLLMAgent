@@ -128,7 +128,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 
 3. 添加题库(action="add_corpus")
    - update_value需包含题目要求描述，格式如下:
-     [{{"difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "answerModel": "BREAK|FIX", "num": 题目数量}}]
+     [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "answerModel": "BREAK|FIX", "num": 题目数量}}]
 
 4. 删除阶段(action="remove")
    - 需识别要删除的阶段索引
@@ -252,9 +252,10 @@ def choose_corpus(competition_dict: dict, field_path: str, update_value: str) ->
                 difficulty = item.get("difficulty")
                 classify = item.get("classify")
                 answerModel = item.get("answerModel")
+                mode = item.get("mode")
                 num = item.get("num")
                 # 随机选取num个题目
-                corpus_list.extend(random.sample(corpus_data[answerModel][classify][difficulty], num))
+                corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
         current["corpusId"] = corpus_list
         return True
     except Exception as e:
