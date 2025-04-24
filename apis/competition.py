@@ -128,12 +128,13 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
             "role": "assistant", 
             "content": all_answer
         })
-        yield f"data: {json.dumps({
+        result = {
             "answer": "<end>",
             "is_completed": is_completed,
             "competition": competition_json,
             "history": history
-        })}\n\n"
+        }
+        yield f"data: {json.dumps(result)}\n\n"
     
     return StreamingResponse(generate(), media_type="text/event-stream")
 
