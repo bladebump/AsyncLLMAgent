@@ -32,14 +32,16 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             # 处理正式回答
             content = getattr(delta, 'content', "") or ""
             if content:
+                # 确保在处理content前先输出所有reasoning
+                if buffer_reasoning:
+                    yield (buffer_reasoning, "")
+                    buffer_reasoning = ""
                 buffer_content += content
                 if len(buffer_content) >= buffer_limit:
                     yield ("", buffer_content)
                     buffer_content = ""
         
         # 处理剩余缓冲
-        if buffer_reasoning:
-            yield (buffer_reasoning, "")
         if buffer_content:
             yield ("", buffer_content)
 

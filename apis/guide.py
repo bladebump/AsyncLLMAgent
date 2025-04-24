@@ -15,9 +15,10 @@ class GuideRequest(BaseModel):
     events: list[Event]  # 学员操作event
     history: list[dict] = []  # 对话历史记录
     question: str  # 学员的问题
+    use_cot_model: bool = False
 
 @guide_router.post("/student_guide")
-async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm)):
+async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     """
     学员引导接口，根据题目信息、学员操作和问题提供引导或解答
     """
@@ -65,12 +66,17 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
 {request.question}
 """
     history.append({'role': "user", 'content': user_msg})
-
+    llm = cot_llm if request.use_cot_model else llm
     async def generate():
         all_answer = ""
-        async for _, resp in await llm.chat(messages=history, stream=True):
+        thinking = ""
+        async for think, resp in await llm.chat(messages=history, stream=True):
+            thinking += think
             all_answer += resp
-            yield f"data: {json.dumps({'answer': all_answer})}\n\n"
+            if request.use_cot_model:
+                yield f"data: {json.dumps({'answer': all_answer, 'thinking': thinking})}\n\n"
+            else:
+                yield f"data: {json.dumps({'answer': all_answer})}\n\n"
 
         # pop system message
         history.pop(0)
