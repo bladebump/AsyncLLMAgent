@@ -80,7 +80,8 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
 """
     else:
         prompt = f"""
-我需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。
+你是竞赛创建助手，需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。
+竞赛是网络安全相关竞赛，用来体现选手的网络安全攻防能力。
 
 当前竞赛配置状态:
 {competition.model_dump_json()}

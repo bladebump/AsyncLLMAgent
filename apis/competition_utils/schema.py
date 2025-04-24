@@ -37,7 +37,7 @@ class CTFGroup(BaseModel):
 class CTFConfig(BaseModel):
     openType: str | None = Field(description="开题方式，ALL(全部开放)、SEQUENCE(按照顺序开放)", default=None)
     canReset: bool | None = Field(description="是否开放选手重制独占靶机，True表示可以重置，False表示不能", default=None)
-    resetNum: int | None = Field(description="重制次数，设置允许重置的最大次数", default=None)
+    resetNum: int | None = Field(description="重制次数，设置允许重置的最大次数，如果不行也要填入0", default=None)
 
 scope_data_str = """PY（防止作弊）：
 {
@@ -106,7 +106,7 @@ class AWDStage(CompetitionStage):
     mode: ModeType = ModeType.AWD
     scorePolicy: AWDScorePolicy = Field(description="计分方式，设置AWD阶段的计分方式", default_factory=AWDScorePolicy)
     config: AWDConfig = Field(description="配置，AWD阶段的具体配置", default_factory=AWDConfig)
-    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表,AWD一般只有一个题目", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表,AWD一般只有一个题目，类型只有WEB和PWN，需要用户说明难度和类型即可", default=None)
 
 class BTCScorePolicy(BaseModel):
     additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=None)
@@ -114,7 +114,7 @@ class BTCScorePolicy(BaseModel):
 class BTCStage(CompetitionStage):
     mode: ModeType = ModeType.BTC
     scorePolicy: BTCScorePolicy = Field(description="计分规则，设置BTC阶段的计分方式", default_factory=BTCScorePolicy)
-    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，是一个列表，类型只有WEB，需要用户说明难度和数量即可", default=None)
 
 class THEORYConfig(BaseModel):
     isShowAllStem: bool | None = Field(description="是否显示所有题，True表示一次性显示所有题目，False表示逐题显示", default=None)
