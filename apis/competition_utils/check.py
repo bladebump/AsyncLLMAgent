@@ -112,7 +112,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
   * "add": 添加新阶段
   * "remove": 删除阶段
   * "add_group": 添加CTF分组
-  * "add_corpus": 添加赛题
+  * "corpus_choice": 添加或者修改赛题设置
 - "description": 简短描述此次更新内容
 
 如果用户意图不明确，请返回:
@@ -126,8 +126,8 @@ async def process_user_input(competition: Competition, user_input: str, history:
 2. 添加CTF分组(action="add_group")
    - update_value为分组名称列表，如["WEB", "RE", "PWN"]
 
-3. 添加题库(action="add_corpus")
-   - update_value需包含题目要求描述，格式如下:
+3. 修改题目(action="corpus_choice")
+   - update_value必须格式如下:
      [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "answerModel": "BREAK|FIX", "num": 题目数量}}]
    - 其中AWD只有WEB和PWN，模式为FIX，难度只有EASY
    - BTC只有WEB，模式为BREAK，难度只有EASY
@@ -215,7 +215,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
                         update_messages.append(f"删除失败: 无效的索引")
                 else:
                     update_messages.append(f"删除失败: 不允许删除字段，只能删除阶段")
-            elif action == "add_corpus":
+            elif action == "corpus_choice":
                 updated = choose_corpus(competition_dict, field_path, update_value)
                 if updated:
                     update_messages.append(f"已添加: {description}")
@@ -255,13 +255,7 @@ def choose_corpus(competition_dict: dict, field_path: str, update_value: str) ->
                 answerModel = item.get("answerModel")
                 mode = item.get("mode")
                 num = item.get("num")
-                # 随机选取num个题目
-                if mode == "CTF":
-                    corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
-                elif mode == "AWD":
-                    corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
-                elif mode == "BTC":
-                    corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
+                corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
         current["corpusId"] = corpus_list
         return True
     except Exception as e:
