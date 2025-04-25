@@ -6,6 +6,7 @@ from utils.log import logger
 import re
 import json
 import random
+
 def check_item_missing_field(item: BaseModel, parent_field: str = "") -> list[str]:
     missing_fields = []
     model_class = item.__class__
