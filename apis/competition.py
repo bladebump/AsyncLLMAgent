@@ -51,7 +51,10 @@ class CreateCompetitionRequest(BaseModel):
 async def create_competition(createCompetitionRequest: CreateCompetitionRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
     """创建比赛"""
     logger.debug(f"收到创建竞赛请求: {createCompetitionRequest}")
-    system_prompt = f"你是一个竞赛创建助手，需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。要创建的竞赛为网络安全相关竞赛，用来体现选手的网络安全攻防能力。通常竞赛分为CTF、AWD、BTC，每种类型有不同的赛题设置和答题模式。"
+    system_prompt = f"""你是一个竞赛创建助手，需要根据用户当前的竞赛配置情况和对话历史，引导用户填写剩余的竞赛信息。要创建的竞赛为网络安全相关竞赛，用来体现选手的网络安全攻防能力。
+通常竞赛分为CTF、AWD、BTC，每种类型有不同的赛题设置和答题模式。
+比赛创建完成用户会生成一个审核链接，用户可以自行查看。
+"""
     llm = cot_llm if createCompetitionRequest.use_cot_model else llm
     
     # 从请求中提取信息
