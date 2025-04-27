@@ -102,6 +102,9 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
 2. 清晰指出下一步需要填写什么内容
 3. 如果需要，提供填写示例或选项
 4. 使用友好的对话语气
+5. 一个比赛可以有多个阶段，但是最少有一个阶段，请引导用户创建相应的阶段，如果有一个也可以继续添加。阶段可以有CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）。
+6. 在还有未填写字段的内容时候，请勿向用户介绍可以提交。
+7. 给出适当的样例，但是不要建议用户使用默认配置。
 """
     # 将Competition对象转换为JSON
     competition_json = competition.model_dump_json()

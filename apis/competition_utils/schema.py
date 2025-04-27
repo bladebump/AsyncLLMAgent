@@ -25,8 +25,8 @@ class CompetitionStage(BaseModel):
     name: str | None = Field(description="阶段名称，例如'初赛'、'决赛'等", default=None)
     description: str | None = Field(description="阶段描述，详细说明此阶段的内容和目标", default=None)
     point: int | None = Field(description="阶段分值，表示此阶段在整个竞赛中的权重", default=2000)
-    startTime: str | None = Field(description="阶段开始时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
-    endTime: str | None = Field(description="阶段结束时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
+    startTime: str | None = Field(description="阶段开始时间，格式为'YYYY-MM-DD HH:MM:SS'，一般为4个小时左右", default=None)
+    endTime: str | None = Field(description="阶段结束时间，格式为'YYYY-MM-DD HH:MM:SS'，一般为4个小时左右", default=None)
     enterCondition: EnterCondition = Field(description="题目开启的限制条件，决定本阶段题目的出现形式", default_factory=EnterCondition)
     mode: str | None = Field(description="阶段类型，可以是CTF、AWD、BTC或THEORY", default=None)
 
@@ -143,7 +143,7 @@ stage_map = {
 
 class Competition(BaseModel):
     baseInfo: CompetitionBaseInfo = Field(description="竞赛基本信息，包含竞赛名称、简介等基础信息", default_factory=CompetitionBaseInfo)
-    stageList: list[CompetitionStage] | None = Field(description="阶段列表，可以创建CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）、THEORY（理论赛）四种阶段", default=None)
+    stageList: list[CompetitionStage] | None = Field(description="阶段列表，可以创建CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）、THEORY（理论赛）四种阶段，让用户输入要创建一个怎么样的阶段", default=None)
     
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):

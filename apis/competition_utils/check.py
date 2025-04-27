@@ -57,6 +57,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
    - 需要填写的缺失字段信息
    - 可添加/修改的内容建议
    - 询问用户是否确认完成创建
+3. 请按照缺失字段的顺序引导用户填写，不要跳过任何字段。
 
 注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"竞赛配置完成"。
 """
