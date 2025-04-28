@@ -109,7 +109,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 【特殊情况处理】
 1. 添加新阶段(action="add")
    - 阶段类型: CTF(夺旗赛)、AWD(攻防赛)、BTC(闯关赛)、THEORY(理论赛)
-   - update_value仅需包含阶段类型
+   - update_value 为一个列表,比如["CTF", "AWD", "BTC"]
 
 2. 添加CTF分组(action="add_group")
    - update_value为分组名称列表，如["WEB", "RE", "PWN"]
