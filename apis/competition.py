@@ -8,6 +8,7 @@ from apis.competition_utils.schema import Competition, CompetitionBaseInfo
 from apis.competition_utils.check import analyze_competition_completeness, process_user_input
 from fastapi.responses import StreamingResponse
 from core.schema import Message
+import time
 
 competition_router = APIRouter(prefix="/competition")
 
@@ -46,6 +47,7 @@ class CreateCompetitionRequest(BaseModel):
     user_input: str
     history: list[dict]
     use_cot_model: bool = False
+    token: str = ""
 
 @competition_router.post("/create_competition")
 async def create_competition(createCompetitionRequest: CreateCompetitionRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
@@ -69,7 +71,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
         competition = Competition.model_validate(competition_data)
     is_completed = False
     # 处理用户输入并更新competition对象
-    competition, update_message = await process_user_input(competition, user_input, history, llm)
+    competition, update_message = await process_user_input(competition, user_input, history, llm, createCompetitionRequest.token)
     
     # 检查竞赛配置的完整性，确定下一步需要填写的信息
     next_step, missing_fields = await analyze_competition_completeness(competition, user_input, llm)
@@ -81,7 +83,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
 # 竞赛信息
 {competition.model_dump()}
 
-请确认以上信息无误，如需修改可以告诉我，或者直接提交创建。
+向用户展示信息即可，不需要用户确认。
 """
     else:
         prompt = f"""
