@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ValidationError
 from core.llms import AsyncBaseChatCOTModel
 from apis.competition_utils.schema import Competition, CTFGroup, stage_map
-from apis.utils import update_field_by_path, get_field_by_path, check_item_missing_field
+from apis.utils import update_field_by_path, get_field_by_path, check_item_missing_field, parse_markdown_json
 from utils.log import logger
 from core.config import config
 import re
@@ -116,9 +116,9 @@ async def process_user_input(competition: Competition, user_input: str, history:
 
 3. 修改题目(action="corpus_choice")
    - update_value必须格式如下:
-     [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "answerModel": "BREAK|FIX", "num": 题目数量}}]
-   - 其中AWD只有WEB和PWN，模式为FIX，难度只有EASY
-   - BTC只有WEB，模式为BREAK，难度只有EASY
+     [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "num": 题目数量}}]
+   - 其中AWD只有WEB和PWN，难度只有EASY
+   - BTC只有WEB，难度只有EASY
 4. 删除阶段(action="remove")
    - 需识别要删除的阶段索引
 
@@ -132,13 +132,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
-        # 使用正则表达式提取JSON部分
-        json_match = re.search(r'```json\s*([\s\S]*?)\s*```|```([\s\S]*?)```|({[\s\S]*})', parse_result)
-        if json_match:
-            json_str = json_match.group(1) or json_match.group(2) or json_match.group(3)
-            updates = json.loads(json_str)
-        else:
-            updates = json.loads(parse_result)
+        updates = parse_markdown_json(parse_result)
         
         # 确保updates是列表
         if not isinstance(updates, list):
@@ -234,27 +228,19 @@ async def get_corpus_data(token: str, corpus_type: str) -> dict:
         "page": 1,
         "size": 1000
     }
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, params=params)
-            response_data = response.json()
-            corpus_data = {}
-            for item in response_data["data"]["tbody"]:
-                # 'id','classify','difficulty','config','type'
-                # 创建嵌套字典结构：config -> classify -> difficulty -> id列表
-                config = json.loads(item["config"])
-                config = config["answerModel"]
-                if config not in corpus_data:
-                    corpus_data[config] = {}
-                if item["classify"] not in corpus_data[config]:
-                    corpus_data[config][item["classify"]] = {}
-                if item["difficulty"] not in corpus_data[config][item["classify"]]:
-                    corpus_data[config][item["classify"]][item["difficulty"]] = []
-                corpus_data[config][item["classify"]][item["difficulty"]].append(item["id"])
-            return corpus_data
-    except Exception as e:
-        with open("data/grouped_results.json", "r") as f:
-            return json.load(f)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers, params=params)
+        response_data = response.json()
+        corpus_data = {}
+        for item in response_data["data"]["tbody"]:
+            # 'id','classify','difficulty','config','type'
+            # 创建嵌套字典结构：classify -> difficulty -> id列表
+            if item["classify"] not in corpus_data:
+                corpus_data[item["classify"]] = {}
+            if item["difficulty"] not in corpus_data[item["classify"]]:
+                corpus_data[item["classify"]][item["difficulty"]] = []
+            corpus_data[item["classify"]][item["difficulty"]].append(item["id"])
+        return corpus_data
 
 async def choose_corpus(competition_dict: dict, field_path: str, update_value: str, token: str) -> bool:
     """
@@ -268,17 +254,14 @@ async def choose_corpus(competition_dict: dict, field_path: str, update_value: s
             for item in update_value:
                 difficulty = item.get("difficulty")
                 classify = item.get("classify")
-                answerModel = item.get("answerModel")
                 mode = item.get("mode")
                 num = item.get("num")
                 corpus_data = await get_corpus_data(token, mode)
-                if not answerModel in corpus_data[mode]:
-                    answerModel = random.choice(list(corpus_data[mode].keys()))
-                if not classify in corpus_data[mode][answerModel]:
-                    classify = random.choice(list(corpus_data[mode][answerModel].keys()))
-                if not difficulty in corpus_data[mode][answerModel][classify]:
-                    difficulty = random.choice(list(corpus_data[mode][answerModel][classify].keys()))
-                corpus_list.extend(random.sample(corpus_data[mode][answerModel][classify][difficulty], num))
+                if not classify in corpus_data:
+                    classify = random.choice(list(corpus_data.keys()))
+                if not difficulty in corpus_data[classify]:
+                    difficulty = random.choice(list(corpus_data[classify].keys()))
+                corpus_list.extend(random.sample(corpus_data[classify][difficulty], num))
         current["corpusId"] = corpus_list
         return True
     except Exception as e:
