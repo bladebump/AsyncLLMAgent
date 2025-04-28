@@ -1,26 +1,12 @@
 from pydantic import BaseModel, ValidationError
 from core.llms import AsyncBaseChatCOTModel
 from apis.competition_utils.schema import Competition, CTFGroup, stage_map
-from apis.utils import update_field_by_path, get_field_by_path
+from apis.utils import update_field_by_path, get_field_by_path, check_item_missing_field
 from utils.log import logger
+from core.config import config
 import re
 import json
 import random
-
-def check_item_missing_field(item: BaseModel, parent_field: str = "") -> list[str]:
-    missing_fields = []
-    model_class = item.__class__
-    for field in model_class.model_fields.keys():
-        name = f"{parent_field}.{field}" if parent_field else field
-        if getattr(item, field) is None:
-            missing_fields.append(f"{name}:{model_class.model_fields[field].description}")
-        elif isinstance(getattr(item, field), BaseModel):
-            missing_fields.extend(check_item_missing_field(getattr(item, field), parent_field=name))
-        elif isinstance(getattr(item, field), list):
-            for index, item in enumerate(getattr(item, field)):
-                if isinstance(item, BaseModel):
-                    missing_fields.extend(check_item_missing_field(item, parent_field=f"{name}[{index}]"))
-    return missing_fields
 
 async def analyze_competition_completeness(competition: Competition, user_input: str, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
     """
@@ -68,7 +54,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
     
     return next_step, missing_fields
 
-async def process_user_input(competition: Competition, user_input: str, history: list[dict], llm: AsyncBaseChatCOTModel) -> tuple[Competition, str]:
+async def process_user_input(competition: Competition, user_input: str, history: list[dict], llm: AsyncBaseChatCOTModel, token: str) -> tuple[Competition, str]:
     """
     处理用户输入并更新competition对象
     
@@ -87,6 +73,8 @@ async def process_user_input(competition: Competition, user_input: str, history:
     missing_fields = check_item_missing_field(competition)
     # 使用LLM分析用户输入，判断用户意图并更新竞赛对象
     prompt = f"""
+{history}
+
 我需要分析用户输入，并将其映射到竞赛配置的相应字段。
 
 当前竞赛配置:
@@ -97,9 +85,6 @@ async def process_user_input(competition: Competition, user_input: str, history:
 
 用户输入:
 {user_input}
-
-对话历史:
-{history}
 
 【任务】
 分析用户意图，将用户输入解析为适当的竞赛配置更新操作。
@@ -168,7 +153,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
                 continue
                 
             field_path = update.get("field_to_update", "")
-            update_value = update.get("update_value")
+            update_value = update.get("update_value", None)
             
             if action == "update":
                 # 更新现有字段
@@ -217,7 +202,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
                 else:
                     update_messages.append(f"删除失败: 不允许删除字段，只能删除阶段")
             elif action == "corpus_choice":
-                updated = choose_corpus(competition_dict, field_path, update_value)
+                updated = choose_corpus(competition_dict, field_path, update_value, token)
                 if updated:
                     update_messages.append(f"已添加: {description}")
                 else:
@@ -236,17 +221,18 @@ async def process_user_input(competition: Competition, user_input: str, history:
         logger.error(f"处理用户输入失败: {e}")
         return competition, f"处理用户输入失败: {e}"
 
-def get_corpus_data() -> dict:
+def get_corpus_data(token: str) -> dict:
+    # TODO: 从平台获取题库数据
     with open("data/grouped_results.json", "r") as f:
         return json.load(f)
 
-def choose_corpus(competition_dict: dict, field_path: str, update_value: str) -> bool:
+def choose_corpus(competition_dict: dict, field_path: str, update_value: str, token: str) -> bool:
     """
     选择题库
     """
     parent_path = field_path[:field_path.rfind(".")]
     current = get_field_by_path(competition_dict, parent_path)
-    corpus_data = get_corpus_data()
+    corpus_data = get_corpus_data(token)
     corpus_list = []
     try:
         if isinstance(update_value, list):

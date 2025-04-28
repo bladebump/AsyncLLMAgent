@@ -68,3 +68,7 @@ chunk:
 # RAG 参数
 rag:
   top_k: 5 
+
+# 平台设置
+platform:
+  url: "http://127.0.0.1:8000"

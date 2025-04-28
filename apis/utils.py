@@ -3,6 +3,7 @@ import json5
 import json
 import re
 import yaml
+from pydantic import BaseModel
 
 def get_llm(request: Request):
     return request.app.state.llm
@@ -31,10 +32,30 @@ def parse_markdown_json(text: str) -> any:
     Raises:
         json.JSONDecodeError: 当JSON解析失败时
     """
-    match = re.search(r"```json\s*([\s\S]*?)\s*```", text)
-    if match:
-        text = match.group(1).strip()
-    return json5.loads(text.strip())
+    # 尝试匹配```json和```之间的内容
+    json_pattern = r"```json\s*([\s\S]*?)\s*```"
+    json_match = re.search(json_pattern, text)
+    
+    if json_match:
+        json_str = json_match.group(1)
+    else:
+        # 如果没有特定的json标记，尝试匹配普通的```和```之间的内容
+        code_pattern = r"```\s*([\s\S]*?)\s*```"
+        code_match = re.search(code_pattern, text)
+        if code_match:
+            json_str = code_match.group(1)
+        else:
+            # 如果没有任何代码块标记，检查是否直接是JSON对象
+            json_obj_pattern = r"({[\s\S]*})"
+            obj_match = re.search(json_obj_pattern, text)
+            if obj_match:
+                json_str = obj_match.group(1)
+            else:
+                # 使用整个文本
+                json_str = text
+    
+    # 解析JSON内容
+    return json5.loads(json_str)
 
 def parse_markdown_yaml(text: str) -> any:
     """从Markdown文本中提取YAML内容并解析
@@ -53,19 +74,19 @@ def parse_markdown_yaml(text: str) -> any:
     yaml_match = re.search(yaml_pattern, text)
     
     if yaml_match:
-        yaml_content = yaml_match.group(1)
+        yaml_str = yaml_match.group(1)
     else:
         # 如果没有特定的yaml标记，尝试匹配普通的```和```之间的内容
         code_pattern = r"```\s*([\s\S]*?)\s*```"
         code_match = re.search(code_pattern, text)
         if code_match:
-            yaml_content = code_match.group(1)
+            yaml_str = code_match.group(1)
         else:
             # 如果没有任何代码块标记，使用整个文本
-            yaml_content = text
+            yaml_str = text
     
     # 解析YAML内容
-    result = yaml.safe_load(yaml_content)
+    result = yaml.safe_load(yaml_str)
     return [] if result is None else result
 
 def get_field_by_path(data: dict, path: str):
@@ -165,3 +186,19 @@ def update_field_by_path(data: dict, path: str, value) -> bool:
         current[last_part] = value
     
     return True
+
+def check_item_missing_field(item: BaseModel, parent_field: str = "") -> list[str]:
+    missing_fields = []
+    model_class = item.__class__
+    for field in model_class.model_fields.keys():
+        name = f"{parent_field}.{field}" if parent_field else field
+        attr_value = getattr(item, field, None)
+        if attr_value is None:
+            missing_fields.append(f"{name}:{model_class.model_fields[field].description}")
+        elif isinstance(attr_value, BaseModel):
+            missing_fields.extend(check_item_missing_field(attr_value, parent_field=name))
+        elif isinstance(attr_value, list):
+            for index, subitem in enumerate(attr_value):
+                if isinstance(subitem, BaseModel):
+                    missing_fields.extend(check_item_missing_field(subitem, parent_field=f"{name}[{index}]"))
+    return missing_fields

@@ -1,44 +1,25 @@
 from pydantic import BaseModel, Field
-from enum import Enum
-import json
-
-class DifficultyType(str, Enum):
-    BEGINNER = "1"
-    INTERMEDIATE = "2"
-    ADVANCED = "3"
 
 class CourseBaseInfo(BaseModel):
     name: str | None = Field(description="课程名称，例如'网络空间安全基础'", default=None)
-    tags: list[int] | None = Field(description="课程标签，描述课程特点的几个关联类目的ID，例如'[1,2,3]'", default=None)
-    authors: list[str] | None = Field(description="作者，主讲老师或团队名称，例如'张三,李四'", default=None)
-    difficulty: DifficultyType | None = Field(description="课程难度，1表示初级，2表示中级，3表示高级", default=None)
-    cover: str = Field(description="封面图片", default="1.jpg")
+    tags: list[int] | None = Field(description="课程标签，为数值列表，描述课程特点的几个关联类目的ID，例如'[1,2,3]'", default=None)
+    authors: list[str] | None = Field(description="作者，为字符串列表，例如['张三','李四']", default=None)
+    difficulty: str | None = Field(description="课程难度，字符串类型，1（初级）、2（中级）、3（高级），只需要输入数字即可", default=None)
+    cover: dict = Field(description="封面图片", default_factory=lambda: {				
+        "key": "course_default_cover",				
+        "signature": "2239427b7a5db9ddd99e14a10e0a3646",				
+        "url": "/adl-oss/resources/course_default_cover?e=1745392405287&fileName&token=SkQYUibnZhlrfZwqMG5x_MBs_lA%3D",				
+        "name": "course_default_cover.png",				
+        "previewUrl": "/adl-oss/resources/course_default_cover?e=1745392405287&preview=true&token=U5tL-V5dn1Ly-9eTmrLEJQon4Y4%3D",				
+        "extension": "png"
+    })
     profile: str | None = Field(description="课程简介，简要概括课程内容，例如'本课程主要介绍网络空间安全基础知识'", default=None)
-    knowledgePoints: list[str] | None = Field(description="知识点，课程中涉及到的知识点，例如'网络安全基础知识,网络攻击与防御,网络安全法律法规'", default=None)
-    introduction: str | None = Field(description="课程介绍，详细介绍课程内容，例如'本课程主要介绍网络空间安全基础知识，包括网络安全基础知识、网络攻击与防御、网络安全法律法规等'", default=None)
-    relatedCourses: list[int] | None = Field(description="相关课程ID，与本课程相关的其他课程的ID，例如'[1,2,3]'", default=None)
 
-    # def model_dump(self, **kwargs):
-    #     # 强制所有字段都输出
-    #     return {field: getattr(self, field) for field in self.__fields__}
-
-    # def model_dump_json(self, **kwargs):
-    #     return json.dumps(self.model_dump(), **kwargs)
-
+class Chapter(BaseModel):
+    name: str | None = Field(description="章节名称，例如'网络安全基础知识'", default=None)
+    profile: str | None = Field(description="章节简介，例如'本章节主要介绍网络安全基础知识'", default=None)
+    knowledgePointList: list[int] | None = Field(description="知识点ID，这个节下面的所有关联到的知识点id", default=None)
+    
 class Course(BaseModel):
     baseInfo: CourseBaseInfo = Field(description="课程基本信息")
-
-    # @classmethod
-    # def model_validate(cls, obj, *args, **kwargs):
-    #     if isinstance(obj, dict):
-    #         if "baseInfo" not in obj or obj["baseInfo"] is None:
-    #             obj["baseInfo"] = {}
-    #     return super().model_validate(obj, *args, **kwargs)
-
-    def model_dump(self, **kwargs):
-        data = super().model_dump(**kwargs)
-        return data
-
-    def model_dump_json(self, **kwargs):
-        data = self.model_dump(**kwargs)
-        return json.dumps(data)
+    chapterList: list[Chapter] | None = Field(description="章节列表，只需要用户输入需要多少总课时即可。", default=None)
