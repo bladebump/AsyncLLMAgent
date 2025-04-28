@@ -166,7 +166,7 @@ async def get_corpus_data(token: str, keyword: str) -> dict:
         "search": keyword
     }
     headers = {
-        "Authorization": f"Bearer {token}"
+        "Authorization": token
     }
     result_data = []
     try:
@@ -292,7 +292,7 @@ async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCO
 async   def get_tags(token: str) -> list[dict]:
     url = f"{config.platform.url}/range-tag/api/selection/tag-select-list?service=range-edu&module=course"
     headers = {
-        "Authorization": f"Bearer {token}"
+        "Authorization": token
     }
     try:
         async with httpx.AsyncClient() as client:

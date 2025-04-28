@@ -7,6 +7,7 @@ from core.config import config
 import re
 import json
 import random
+import httpx
 
 async def analyze_competition_completeness(competition: Competition, user_input: str, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
     """
@@ -203,7 +204,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
                 else:
                     update_messages.append(f"删除失败: 不允许删除字段，只能删除阶段")
             elif action == "corpus_choice":
-                updated = choose_corpus(competition_dict, field_path, update_value, token)
+                updated = await choose_corpus(competition_dict, field_path, update_value, token)
                 if updated:
                     update_messages.append(f"已添加: {description}")
                 else:
@@ -222,18 +223,45 @@ async def process_user_input(competition: Competition, user_input: str, history:
         logger.error(f"处理用户输入失败: {e}")
         return competition, f"处理用户输入失败: {e}"
 
-def get_corpus_data(token: str) -> dict:
-    # TODO: 从平台获取题库数据
-    with open("data/grouped_results.json", "r") as f:
-        return json.load(f)
+async def get_corpus_data(token: str, corpus_type: str) -> dict:
+    if not (corpus_type in ["CTF", "AWD", "BTC"] or corpus_type in ["ctf", "awd", "btc"]):
+        raise ValueError("corpus_type 必须是 CTF, AWD, BTC 或 ctf, awd, btc")
+    url = f"{config.platform.url}/slab-match/api/v1/corpus/{corpus_type.lower()}/list"
+    headers = {
+        "Authorization": token
+    }
+    params = {
+        "page": 1,
+        "size": 1000
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, params=params)
+            response_data = response.json()
+            corpus_data = {}
+            for item in response_data["data"]["tbody"]:
+                # 'id','classify','difficulty','config','type'
+                # 创建嵌套字典结构：config -> classify -> difficulty -> id列表
+                config = json.loads(item["config"])
+                config = config["answerModel"]
+                if config not in corpus_data:
+                    corpus_data[config] = {}
+                if item["classify"] not in corpus_data[config]:
+                    corpus_data[config][item["classify"]] = {}
+                if item["difficulty"] not in corpus_data[config][item["classify"]]:
+                    corpus_data[config][item["classify"]][item["difficulty"]] = []
+                corpus_data[config][item["classify"]][item["difficulty"]].append(item["id"])
+            return corpus_data
+    except Exception as e:
+        with open("data/grouped_results.json", "r") as f:
+            return json.load(f)
 
-def choose_corpus(competition_dict: dict, field_path: str, update_value: str, token: str) -> bool:
+async def choose_corpus(competition_dict: dict, field_path: str, update_value: str, token: str) -> bool:
     """
     选择题库
     """
     parent_path = field_path[:field_path.rfind(".")]
     current = get_field_by_path(competition_dict, parent_path)
-    corpus_data = get_corpus_data(token)
     corpus_list = []
     try:
         if isinstance(update_value, list):
@@ -243,6 +271,7 @@ def choose_corpus(competition_dict: dict, field_path: str, update_value: str, to
                 answerModel = item.get("answerModel")
                 mode = item.get("mode")
                 num = item.get("num")
+                corpus_data = await get_corpus_data(token, mode)
                 if not answerModel in corpus_data[mode]:
                     answerModel = random.choice(list(corpus_data[mode].keys()))
                 if not classify in corpus_data[mode][answerModel]:
