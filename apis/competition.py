@@ -88,7 +88,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     else:
         prompt = f"""
 当前竞赛配置状态:
-{competition.model_dump_json()}
+{competition.model_dump()}
 
 用户最新输入:
 {user_input}
