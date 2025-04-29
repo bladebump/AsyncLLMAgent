@@ -27,14 +27,17 @@ async def analyze_competition_completeness(competition: Competition, user_input:
     prompt = f"""
 根据下面列出的竞赛配置中缺失的字段，你需要确定下一步用户填写内容，并按照严格的格式返回回答。
 
-用户输入:
+<用户输入>
 {user_input}
+</用户输入>
 
-缺失的字段:
+<缺失的字段>
 {missing_fields}
+</缺失的字段>
 
-当前竞赛配置:
+<当前竞赛配置>
 {competition_dict}
+</当前竞赛配置>
 
 【回答要求】
 请严格按照以下规则回答:
@@ -77,14 +80,17 @@ async def process_user_input(competition: Competition, user_input: str, history:
     prompt = f"""
 我需要分析用户输入，并将其映射到竞赛配置的相应字段。
 
-当前竞赛配置:
+<当前竞赛配置>
 {competition_dict}
+</当前竞赛配置>
 
-缺失的字段:
+<缺失的字段>
 {missing_fields}
+</缺失的字段>
 
-用户输入:
+<用户输入>
 {user_input}
+</用户输入>
 
 【任务】
 分析用户意图，将用户输入解析为适当的竞赛配置更新操作。

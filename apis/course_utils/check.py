@@ -22,14 +22,17 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
     prompt = f"""
 根据下面列出的课程配置中缺失的字段，你需要确定下一步用户填写内容，并按照严格的格式返回回答。
 
-用户输入:
+<用户输入>
 {user_input}
+</用户输入>
 
-缺失的字段:
+<缺失的字段>
 {missing_fields}
+</缺失的字段>
 
-当前课程配置:
+<当前课程配置>
 {course_dict}
+</当前课程配置>
 
 【回答要求】
 请严格按照以下规则回答:
@@ -67,18 +70,19 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
     course_dict = course.model_dump(mode='python')
     missing_fields = check_item_missing_field(course)
     prompt = f"""
-{history}
-
 我需要分析用户输入，并将其映射到课程配置的相应字段。
 
-当前课程配置:
+<当前课程配置>
 {course_dict}
+</当前课程配置>
 
-缺失的字段:
+<缺失的字段>
 {missing_fields}
+</缺失的字段>
 
-用户输入:
+<用户输入>
 {user_input}
+</用户输入>
 
 【任务】
 分析用户意图，将用户输入解析为适当的课程配置更新操作。
