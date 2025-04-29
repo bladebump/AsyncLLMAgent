@@ -161,14 +161,14 @@ async def process_user_input(competition: Competition, user_input: str, history:
             
             elif action == "add":
                 if field_path == "stageList":
-                    stage_type = update_value
-                    if stage_type in stage_map:
-                        stage_class = stage_map[stage_type]
-                        stage_obj = stage_class()
-                        competition_dict["stageList"].append(stage_obj)
-                        update_messages.append(f"已添加: {description}")
-                    else:
-                        update_messages.append(f"添加失败: 不允许添加{stage_type}阶段")
+                    for stage_type in update_value:
+                        if stage_type in stage_map:
+                            stage_class = stage_map[stage_type]
+                            stage_obj = stage_class()
+                            competition_dict["stageList"].append(stage_obj)
+                            update_messages.append(f"已添加: {description}")
+                        else:
+                            update_messages.append(f"添加失败: 不允许添加{stage_type}阶段")
             elif action == "add_group":
                 if field_path.endswith(".groupList"):
                     if not isinstance(update_value, list):
