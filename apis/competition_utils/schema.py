@@ -98,9 +98,31 @@ class AWDScorePolicyData(BaseModel):
     defendScore: int | None = Field(description="防御得分", default=None)
     unavailableScore: int | None = Field(description="不可用得分", default=None)
 
+score_policy_data_str = """
+DEFAULT（默认）:
+{
+    "type": "DEFAULT",
+    "data": {
+      "attackScore": 15,        //攻击成功得分
+      "defendScore": 10,        //被攻击着减分
+      "unavailableScore": 5     //服务不可以用减分
+    }
+}
+
+ZERO_SUM（零和）:
+{
+    "type": "ZERO_SUM",
+    "data": {
+        "deductedMaxScore": 0,   // 未知。界面上没有选项，但是传输过程中有
+        "serviceScore": 1,       //单个服务可用性分值
+        "totalScore": 10         //每题每一轮的分值
+    }
+}
+"""
+
 class AWDScorePolicy(BaseModel):
-    type: str | None = Field(description="计分方式，SCORE(得分)、RATIO(比例)", default=None)
-    data: AWDScorePolicyData | None = Field(description="计分方式的具体配置", default_factory=AWDScorePolicyData)
+    type: str | None = Field(description="计分方式，DEFAULT(默认)、ZERO_SUM(零和)", default=None)
+    data: dict | None = Field(description=score_policy_data_str, default=None)
 
 class AWDStage(CompetitionStage):
     mode: ModeType = ModeType.AWD
