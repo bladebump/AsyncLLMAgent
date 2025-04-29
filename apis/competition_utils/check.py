@@ -118,8 +118,8 @@ async def process_user_input(competition: Competition, user_input: str, history:
 3. 修改题目(action="corpus_choice")
    - update_value必须格式如下:
      [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "num": 题目数量}}]
-   - 其中AWD只有WEB和PWN，难度只有EASY
-   - BTC只有WEB，难度只有EASY
+   - 其中AWD只有WEB和PWN，难度只有EASY，同样遵循上面的规则
+   - BTC只有WEB，难度只有EASY，同样遵循上面的规则
 4. 删除阶段(action="remove")
    - 需识别要删除的阶段索引
 
