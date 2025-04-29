@@ -50,7 +50,7 @@ async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBase
     else:
         prompt = f"""
 当前课程配置状态:
-{course.model_dump_json()}
+{course.model_dump()}
 
 用户最新输入:
 {user_input}
