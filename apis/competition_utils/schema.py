@@ -39,7 +39,7 @@ class CTFConfig(BaseModel):
     canReset: bool | None = Field(description="是否开放选手重制独占靶机，True表示可以重置，False表示不能", default=None)
     resetNum: int | None = Field(description="重制次数，设置允许重置的最大次数，如果不行也要填入0", default=None)
 
-scope_data_str = """PY（防止作弊）：
+score_data_str = """PY（防止作弊）：
 {
      "type": "PY",
      "data": {
@@ -73,15 +73,15 @@ scope_data_str = """PY（防止作弊）：
 }
 """
 
-class ScopePolicy(BaseModel):
+class ScorePolicy(BaseModel):
     type: str | None = Field(description="计分方式，PY（防止作弊）、DEFAULT（普通模式）、REDUCE（递减模式）", default=None)
-    data: dict | None = Field(description=scope_data_str, default=None)
+    data: dict | None = Field(description=score_data_str, default=None)
 
 class CTFStage(CompetitionStage):
     mode: ModeType = ModeType.CTF
     answerMode: str | None = Field(description="答题模式，BREAK或者FIX", default=None)
     config: CTFConfig = Field(description="配置，CTF阶段的具体配置", default_factory=CTFConfig)
-    scopePolicy: ScopePolicy = Field(description="计分方式，设置此阶段的计分规则", default_factory=ScopePolicy)
+    scorePolicy: ScorePolicy = Field(description="计分方式，设置此阶段的计分规则", default_factory=ScorePolicy)
     groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组，是一个列表", default=None)
 
 class AWDConfig(BaseModel):
