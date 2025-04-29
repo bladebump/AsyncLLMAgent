@@ -116,10 +116,9 @@ async def process_user_input(competition: Competition, user_input: str, history:
    - update_value为一个列表，比如["WEB", "RE", "PWN"]
 
 3. 修改题目(action="corpus_choice")
-   - update_value必须格式如下:
-     [{{"mode": "CTF|AWD|BTC", "difficulty": "EASY|MEDIUM|HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "num": 题目数量}}]
-   - 其中AWD只有WEB和PWN，难度只有EASY，同样遵循上面的规则
-   - BTC只有WEB，难度只有EASY，同样遵循上面的规则
+   - update_value为一个列表，列表中每个元素的格式如下:
+     [{{"mode": "CTF|AWD|BTC", "difficulty": "VERY_EASY|EASY|MEDIUM|HARD|VERY_HARD", "classify": "WEB|MISC|CRYPTO|REVERSE|PWN", "num": 题目数量}}]
+
 4. 删除阶段(action="remove")
    - 需识别要删除的阶段索引
 
@@ -199,11 +198,11 @@ async def process_user_input(competition: Competition, user_input: str, history:
                 else:
                     update_messages.append(f"删除失败: 不允许删除字段，只能删除阶段")
             elif action == "corpus_choice":
-                updated = await choose_corpus(competition_dict, field_path, update_value, token)
+                updated, error_message = await choose_corpus(competition_dict, field_path, update_value, llm, token)
                 if updated:
                     update_messages.append(f"已添加: {description}")
                 else:
-                    update_messages.append(f"添加失败: {description}")
+                    update_messages.append(f"添加失败: {error_message}")
 
 
         updated_competition = Competition.model_validate(competition_dict)
@@ -218,7 +217,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
         logger.error(f"处理用户输入失败: {e}")
         return competition, f"处理用户输入失败: {e}"
 
-async def get_corpus_data(token: str, corpus_type: str) -> dict:
+async def get_corpus_data(token: str, corpus_type: str, difficulty: str|None, classify: str|None) -> dict:
     if not (corpus_type in ["CTF", "AWD", "BTC"] or corpus_type in ["ctf", "awd", "btc"]):
         raise ValueError("corpus_type 必须是 CTF, AWD, BTC 或 ctf, awd, btc")
     url = f"{config.platform.url}/slab-match/api/v1/corpus/{corpus_type.lower()}/list"
@@ -227,23 +226,21 @@ async def get_corpus_data(token: str, corpus_type: str) -> dict:
     }
     params = {
         "page": 1,
-        "size": 1000
+        "size": 100,
     }
+    if difficulty:
+        params["difficulty"] = difficulty
+    if classify:
+        params["classify"] = classify
     async with httpx.AsyncClient() as client:
         response = await client.get(url, headers=headers, params=params)
         response_data = response.json()
-        corpus_data = {}
+        corpus_data = []
         for item in response_data["data"]["tbody"]:
-            # 'id','classify','difficulty','config','type'
-            # 创建嵌套字典结构：classify -> difficulty -> id列表
-            if item["classify"] not in corpus_data:
-                corpus_data[item["classify"]] = {}
-            if item["difficulty"] not in corpus_data[item["classify"]]:
-                corpus_data[item["classify"]][item["difficulty"]] = []
-            corpus_data[item["classify"]][item["difficulty"]].append(item["id"])
+            corpus_data.append(item['id'])
         return corpus_data
 
-async def choose_corpus(competition_dict: dict, field_path: str, update_value: str, token: str) -> bool:
+async def choose_corpus(competition_dict: dict, field_path: str, update_value: str, llm: AsyncBaseChatCOTModel, token: str) -> tuple[bool, str]:
     """
     选择题库
     """
@@ -257,12 +254,12 @@ async def choose_corpus(competition_dict: dict, field_path: str, update_value: s
                 classify = item.get("classify")
                 mode = item.get("mode")
                 num = item.get("num")
-                corpus_data = await get_corpus_data(token, mode)
-                if not classify in corpus_data:
-                    classify = random.choice(list(corpus_data.keys()))
-                if not difficulty in corpus_data[classify]:
-                    difficulty = random.choice(list(corpus_data[classify].keys()))
-                corpus_list.extend(random.sample(corpus_data[classify][difficulty], num))
+                corpus_data = await get_corpus_data(token, mode, difficulty, classify)
+                if len(corpus_data) == 0:
+                    corpus_data = await get_corpus_data(token, mode, difficulty, None)
+                if len(corpus_data) == 0:
+                    corpus_data = await get_corpus_data(token, mode, None, None)
+                corpus_list.extend(random.sample(corpus_data, num))
         current["corpusId"] = corpus_list
         return True
     except Exception as e:
