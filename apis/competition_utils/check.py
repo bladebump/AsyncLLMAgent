@@ -112,7 +112,8 @@ async def process_user_input(competition: Competition, user_input: str, history:
    - update_value 为一个列表,比如["CTF", "AWD", "BTC"]
 
 2. 添加CTF分组(action="add_group")
-   - update_value为分组名称列表，如["WEB", "RE", "PWN"]
+   - 需要识别用户输入的CTF分组名称，比如"WEB"、"RE"、"PWN"
+   - update_value为一个列表，比如["WEB", "RE", "PWN"]
 
 3. 修改题目(action="corpus_choice")
    - update_value必须格式如下:
