@@ -39,37 +39,28 @@ class CTFConfig(BaseModel):
     canReset: bool | None = Field(description="是否开放选手重制独占靶机，True表示可以重置，False表示不能", default=None)
     resetNum: int | None = Field(description="重制次数，设置允许重置的最大次数，如果不行也要填入0", default=None)
 
-score_data_str = """PY（防止作弊）：
+score_data_str = """如果type是PY（防止作弊）：
 {
-     "type": "PY",
-     "data": {
-            "maxScore": 500,
-            "minScore": 200,
-            "scoreRate": 10,
-     }
+    "maxScore": 500,
+    "minScore": 200,
+    "scoreRate": 4,
 }
 
-普通模式(DEFAULT):
+如果type是DEFAULT（默认）:
 {
-    "type": "DEFAULT",
-    "data": {
-        "rewardType": "ratio", // "score" 分数的模式
-        "rewardData": {
-            "fst": 20,
-            "sec": 10,
-            "trd": 5,
-         }
+    "rewardType": "ratio", // "score" 分数的模式
+    "rewardData": {
+        "fst": 20,
+        "sec": 10,
+        "trd": 5,
     }
 }
 
-递减模式(RATIO)
+如果type是REDUCE（递减模式）:
 {
-    "type": "REDUCE",
-    "data": {
-        "reduceType": "ratio",   // "score" 分数的模式
-        "reduce": 10,
-        "baseLine": 30
-    }
+    "reduceType": "ratio",   // "score" 分数的模式
+    "reduce": 10,
+    "baseLine": 30
 }
 """
 
@@ -99,24 +90,18 @@ class AWDScorePolicyData(BaseModel):
     unavailableScore: int | None = Field(description="不可用得分", default=None)
 
 score_policy_data_str = """
-DEFAULT（默认）:
+如果type是DEFAULT（默认）:
 {
-    "type": "DEFAULT",
-    "data": {
-      "attackScore": 15,        //攻击成功得分
-      "defendScore": 10,        //被攻击着减分
-      "unavailableScore": 5     //服务不可以用减分
-    }
+    "attackScore": 15,        //攻击成功得分
+    "defendScore": 10,        //被攻击着减分
+    "unavailableScore": 5     //服务不可以用减分
 }
 
-ZERO_SUM（零和）:
+如果type是ZERO_SUM（零和）:
 {
-    "type": "ZERO_SUM",
-    "data": {
-        "deductedMaxScore": 0,   // 未知。界面上没有选项，但是传输过程中有
-        "serviceScore": 1,       //单个服务可用性分值
-        "totalScore": 10         //每题每一轮的分值
-    }
+    "deductedMaxScore": 0,   // 未知。界面上没有选项，但是传输过程中有
+    "serviceScore": 1,       //单个服务可用性分值
+    "totalScore": 10         //每题每一轮的分值
 }
 """
 
