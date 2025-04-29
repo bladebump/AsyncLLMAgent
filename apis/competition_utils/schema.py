@@ -132,9 +132,9 @@ class AWDStage(CompetitionStage):
 
 class BTCScorePolicy(BaseModel):
     additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=None)
-    first: int | None = Field(description="只有在additional为TRUE时有效，第一名得分，如果additional为FALSE，则用0即可", default=None)
-    second: int | None = Field(description="只有在additional为TRUE时有效，第二名得分，如果additional为FALSE，则用0即可", default=None)
-    third: int | None = Field(description="只有在additional为TRUE时有效，第三名得分，如果additional为FALSE，则用0即可", default=None)
+    first: int | None = Field(description="只有在additional为TRUE时有效，第一名得分，通常为15，如果additional为FALSE，则用0即可", default=None)
+    second: int | None = Field(description="只有在additional为TRUE时有效，第二名得分，通常为10，如果additional为FALSE，则用0即可", default=None)
+    third: int | None = Field(description="只有在additional为TRUE时有效，第三名得分，通常为5，如果additional为FALSE，则用0即可", default=None)
 
 class BTCStage(CompetitionStage):
     mode: ModeType = ModeType.BTC
