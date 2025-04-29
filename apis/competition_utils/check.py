@@ -200,7 +200,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
             elif action == "corpus_choice":
                 updated, error_message = await choose_corpus(competition_dict, field_path, update_value, llm, token)
                 if updated:
-                    update_messages.append(f"已添加: {description}")
+                    update_messages.append(f"已添加: {description} \n{error_message}")
                 else:
                     update_messages.append(f"添加失败: {error_message}")
 
@@ -247,6 +247,7 @@ async def choose_corpus(competition_dict: dict, field_path: str, update_value: s
     parent_path = field_path[:field_path.rfind(".")]
     current = get_field_by_path(competition_dict, parent_path)
     corpus_list = []
+    error_message = ""
     try:
         if isinstance(update_value, list):
             for item in update_value:
@@ -256,13 +257,16 @@ async def choose_corpus(competition_dict: dict, field_path: str, update_value: s
                 num = item.get("num")
                 corpus_data = await get_corpus_data(token, mode, difficulty, classify)
                 if len(corpus_data) == 0:
-                    corpus_data = await get_corpus_data(token, mode, difficulty, None)
+                    error_message += f"难度{difficulty}分类{classify}题库为空, 取消难度随机选择\n"
+                    corpus_data = await get_corpus_data(token, mode, None, classify)
                 if len(corpus_data) == 0:
+                    error_message += f"分类{classify}题库为空, 取消分类随机选择\n"
                     corpus_data = await get_corpus_data(token, mode, None, None)
                 corpus_list.extend(random.sample(corpus_data, num))
         current["corpusId"] = corpus_list
-        return True
+        return True, error_message
     except Exception as e:
         logger.error(f"选择题库失败: {e}")
-        return False
+        error_message += f"选择题库失败: {e}"
+        return False, error_message
     
