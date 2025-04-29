@@ -75,8 +75,6 @@ async def process_user_input(competition: Competition, user_input: str, history:
     missing_fields = check_item_missing_field(competition)
     # 使用LLM分析用户输入，判断用户意图并更新竞赛对象
     prompt = f"""
-{history}
-
 我需要分析用户输入，并将其映射到竞赛配置的相应字段。
 
 当前竞赛配置:
