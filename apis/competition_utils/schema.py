@@ -94,14 +94,14 @@ score_policy_data_str = """
 {
     "attackScore": 15,        //攻击成功得分
     "defendScore": 10,        //被攻击着减分
-    "unavailableScore": 5     //服务不可以用减分
+    "unavailableScore": 200     //服务不可以用减分
 }
 
 如果type是ZERO_SUM（零和）:
 {
     "deductedMaxScore": 0,   // 未知。界面上没有选项，但是传输过程中有
-    "serviceScore": 1,       //单个服务可用性分值
-    "totalScore": 10         //每题每一轮的分值
+    "serviceScore": 200,       //单个服务可用性分值
+    "totalScore": 200         //每题每一轮的分值
 }
 """
 
@@ -113,7 +113,7 @@ class AWDStage(CompetitionStage):
     mode: ModeType = ModeType.AWD
     scorePolicy: AWDScorePolicy = Field(description="计分方式，设置AWD阶段的计分方式", default_factory=AWDScorePolicy)
     config: AWDConfig = Field(description="配置，AWD阶段的具体配置", default_factory=AWDConfig)
-    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库,AWD一般只有一个题目，类型只有WEB和PWN，仅仅需要用户说明难度和类型即可", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，类型只有WEB和PWN，仅仅需要用户说明难度和类型即可", default=None)
 
 class BTCScorePolicy(BaseModel):
     additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=None)
@@ -124,7 +124,7 @@ class BTCScorePolicy(BaseModel):
 class BTCStage(CompetitionStage):
     mode: ModeType = ModeType.BTC
     scorePolicy: BTCScorePolicy = Field(description="计分规则，设置BTC阶段的计分方式", default_factory=BTCScorePolicy)
-    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，类型只有WEB，仅仅需要用户说明难度和数量即可", default=None)
+    corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，BTC只有一个题目,类型只有WEB，仅仅需要用户说明难度即可", default=None)
 
 class THEORYConfig(BaseModel):
     isShowAllStem: bool | None = Field(description="是否显示所有题，True表示一次性显示所有题目，False表示逐题显示", default=None)
