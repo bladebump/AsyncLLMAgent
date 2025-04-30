@@ -10,20 +10,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    llm_provider = config.current_provider
-    llm_config = config.llm_providers[llm_provider]
-    app.state.llm = OpenAICoT(
-        api_base=llm_config.api_base,
-        api_key=llm_config.api_key,
-        model=llm_config.model,
-        support_fn_call=True
-    )
-    app.state.llm_cot = OpenAICoT(
-        api_base=config.llm_cot.api_base,
-        api_key=config.llm_cot.api_key,
-        model=config.llm_cot.model,
-        support_fn_call=False
-    )
+    app.state.llm_list = {}
+    app.state.llm_cot = {}
+    for provider_name in config.llm_providers:
+        provider_config = config.llm_providers[provider_name]
+        app.state.llm_list[provider_config.model] = OpenAICoT(
+            api_base=provider_config.api_base,
+            api_key=provider_config.api_key,
+            model=provider_config.model,
+            support_fn_call=True
+        )
+    for provider_name in config.llm_cot_providers:
+        provider_config = config.llm_cot_providers[provider_name]
+        app.state.llm_cot[provider_config.model] = OpenAICoT(
+            api_base=provider_config.api_base,
+            api_key=provider_config.api_key,
+            model=provider_config.model,
+            support_fn_call=False
+        )
     app.state.embedding = SiliconEmbeddingAgent(
         url=config.embedding.api_base,
         api_key=config.embedding.api_key,

@@ -4,12 +4,18 @@ import json
 import re
 import yaml
 from pydantic import BaseModel
+from core.config import config
+def get_llm(request: Request, llm_name: str | None = None):
+    if llm_name is None:
+        return request.app.state.llm_list[config.current_provider]
+    else:
+        return request.app.state.llm_list[llm_name]
 
-def get_llm(request: Request):
-    return request.app.state.llm
-
-def get_llm_cot(request: Request):
-    return request.app.state.llm_cot
+def get_llm_cot(request: Request, llm_name: str | None = None):
+    if llm_name is None:
+        return request.app.state.llm_cot[config.current_provider]
+    else:
+        return request.app.state.llm_cot[llm_name]
 
 def get_embedding(request: Request):
     return request.app.state.embedding

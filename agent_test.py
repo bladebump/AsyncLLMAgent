@@ -1,7 +1,7 @@
 from core.agent import ToolCallAgent, SummaryToolCallAgent
 import asyncio
 from core.config import config
-from core.llms import OpenAICoT
+from core.llms.qwen_llm import QwenCoT
 from core.tools import GetWeather, RAGTool, MCPClients, Terminate
 from core.mem import ListMemory
 from core.schema import AgentDone
@@ -11,11 +11,12 @@ from core.ranks import SiliconRankAgent
 
 async def main():
     llm_provider = config.current_provider
-    llm_config = config.llm_providers[llm_provider]
-    llm = OpenAICoT(
+    llm_config = config.llm_providers["qwen"]
+    llm = QwenCoT(
         api_base=llm_config.api_base,
         api_key=llm_config.api_key,
         model=llm_config.model,
+        enable_thinking=True
     )
     embedding = SiliconEmbeddingAgent(
         url=config.embedding.api_base,
@@ -67,6 +68,4 @@ async def main():
                 print(all_thinking, all_result)
     
 if __name__ == "__main__":
-    get_weather = GetWeather()
-    print(get_weather.to_param())
-    # asyncio.run(main())
+    asyncio.run(main())

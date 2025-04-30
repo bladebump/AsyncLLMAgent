@@ -240,6 +240,8 @@ async def get_corpus_data(token: str, corpus_type: str, difficulty: str|None, cl
         response = await client.get(url, headers=headers, params=params)
         response_data = response.json()
         corpus_data = []
+        if "tbody" not in response_data["data"]:
+            raise ValueError(f"获取题库失败: {response_data['message']}")
         for item in response_data["data"]["tbody"]:
             corpus_data.append(item['id'])
         return corpus_data

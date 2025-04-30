@@ -17,10 +17,13 @@ class ConfigDict:
     
     def __getitem__(self, key: str) -> Any:
         return self.__getattr__(key)
+    
+    def __iter__(self):
+        return iter(self._data)
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._data.get(key, default)
-    
+
 class Config:
     _instance = None
     _config: Dict[str, Any] = {}
