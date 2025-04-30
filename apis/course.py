@@ -72,6 +72,7 @@ async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBase
 2. 清晰指出下一步需要填写什么内容
 3. 如果需要，提供填写示例或选项
 4. 使用友好的对话语气
+5. 在用户没有输入名称前，不要提示用户输入标签相关信息
 """
     # 将Course对象转换为JSON
     course_json = course.model_dump_json()
