@@ -1,10 +1,12 @@
 from pydantic import ValidationError
 from core.llms import AsyncBaseChatCOTModel
-from apis.course_utils.schema import Course
+from .schema import Course
 from utils.log import logger
 from apis.utils import update_field_by_path, check_item_missing_field, parse_markdown_yaml, parse_markdown_json
 from core.config import config
 import httpx
+from copy import deepcopy
+from core.schema import Message
 
 async def analyze_course_completeness(course: Course, user_input: str, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
     """
@@ -112,8 +114,9 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
-    
-    thinking, parse_result = await llm.chat(prompt, stream=False, temperature=0.01)
+    messages = deepcopy(history)
+    messages.append(Message.user_message(prompt))
+    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
