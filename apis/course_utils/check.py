@@ -268,6 +268,8 @@ async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCO
 3. 总课时必须严格控制在用户要求范围内
 4. 章节数目不宜过多，一般为3-5个章节
 5. 在生成前，请计算选择的知识点的总课时，确保不超标
+6. 请确保选择的知识点id是正确的
+7. 如果课程数量不足，请选择少的课程，不要瞎编
 
 【输出格式】
 请使用YAML格式返回章节列表，并在开头注明总课时计算:
