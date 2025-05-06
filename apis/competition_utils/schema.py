@@ -73,7 +73,7 @@ class CTFStage(CompetitionStage):
     answerMode: str | None = Field(description="答题模式，BREAK或者FIX", default=None)
     config: CTFConfig = Field(description="配置，CTF阶段的具体配置", default_factory=CTFConfig)
     scorePolicy: ScorePolicy = Field(description="计分方式，设置此阶段的计分规则", default_factory=ScorePolicy)
-    groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组，是一个列表", default=None)
+    groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组，是一个列表。仅仅引导用户输入['web', 'pwn']这种即可，或者让用户说需要什么组。", default=None)
 
 class AWDConfig(BaseModel):
     initPoint: int | None = Field(description="初始分值，设置参赛者的初始分数", default=None)
