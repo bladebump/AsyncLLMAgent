@@ -116,10 +116,7 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 """
     messages = deepcopy(history)
     messages.append(Message.user_message(prompt))
-    response_format={
-        'type': 'json_object'
-    }
-    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01, response_format=response_format)
+    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
