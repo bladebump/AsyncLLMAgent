@@ -79,12 +79,18 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     if next_step == "竞赛配置完成":
         is_completed = True
         prompt = f"""
-竞赛配置已经完成，可以提交创建。以下是您的竞赛配置信息：
+竞赛配置已经完成，可以提交创建。请将以下竞赛配置信息转换为用户友好的格式：
 
-# 竞赛信息
+# 竞赛配置数据
 {competition.model_dump()}
 
-向用户展示信息即可，不需要用户确认。
+请对上述配置数据进行整理，以清晰、结构化的方式呈现关键信息，包括但不限于：
+1. 竞赛名称、时间、简介等基本信息
+2. 竞赛阶段和类型
+3. 赛题设置和评分规则
+4. 其他重要配置
+
+注意：不要直接返回JSON格式，而是将数据转换为易于阅读的文本形式，使用适当的标题、分段和格式化。
 """
     else:
         prompt = f"""
