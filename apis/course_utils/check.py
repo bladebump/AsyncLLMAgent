@@ -100,7 +100,10 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 - "description": 简短描述此次更新内容
 
 如果用户意图不明确，请返回:
-{{"action": "none", "description": "无法确定用户意图"}}
+[{{"action": "none", "description": "无法确定用户意图"}}]
+
+【返回样列】
+[{{"action": "update", "field_to_update": "baseInfo.name", "update_value": "课程名称", "description": "更新课程名称"}}]
 
 【特殊情况处理】
 1. 添加新章节(action="add_chapter")
@@ -116,7 +119,10 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 """
     messages = deepcopy(history)
     messages.append(Message.user_message(prompt))
-    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01)
+    response_format={
+        'type': 'json_object'
+    }
+    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01, response_format=response_format)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:

@@ -98,7 +98,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 分析用户意图，将用户输入解析为适当的竞赛配置更新操作。
 
 【输出格式】
-返回一个JSON格式的操作指令，包含以下字段:
+返回一个JSON格式的操作指令，是一个列表，列表中每个元素是一个包含以下字段的对象:
 - "field_to_update": 需要更新的字段路径，使用点表示法（如"baseInfo.name"或"stageList[0].config.openType"）
 - "update_value": 更新的值
 - "action": 操作类型，可选值:
@@ -109,8 +109,11 @@ async def process_user_input(competition: Competition, user_input: str, history:
   * "corpus_choice": 添加或者修改赛题设置
 - "description": 简短描述此次更新内容
 
+【返回样列】
+[{{"action": "update", "field_to_update": "baseInfo.name", "update_value": "竞赛名称", "description": "更新竞赛名称"}}]
+
 如果用户意图不明确，请返回:
-{{"action": "none", "description": "无法确定用户意图"}}
+[{{"action": "none", "description": "无法确定用户意图"}}]
 
 【特殊情况处理】
 1. 添加新阶段(action="add")
@@ -136,7 +139,10 @@ async def process_user_input(competition: Competition, user_input: str, history:
     
     messages = deepcopy(history)
     messages.append(Message.user_message(prompt))
-    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01)
+    response_format={
+        'type': 'json_object'
+    }
+    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01, response_format=response_format)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
