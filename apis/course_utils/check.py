@@ -12,6 +12,7 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
 
     Args:
         course: 当前课程配置
+        user_input: 用户输入
         llm: 语言模型
         
     Returns:
@@ -45,7 +46,7 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
 
 注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"课程配置完成"。
 """
-    thinking, next_step = await llm.chat(prompt, stream=False)
+    thinking, next_step = await llm.chat(prompt, stream=False, temperature=0.01)
     
     # 检查返回的内容，如果包含"竞赛配置完成"就标准化
     if "课程配置完成" in next_step:
@@ -112,7 +113,7 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
     
-    thinking, parse_result = await llm.chat(prompt, stream=False)
+    thinking, parse_result = await llm.chat(prompt, stream=False, temperature=0.01)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
@@ -203,7 +204,7 @@ web安全,sql注入,xss攻击
 
 请生成：
 """
-    thinking, result = await llm.chat(prompt, stream=False)
+    thinking, result = await llm.chat(prompt, stream=False, temperature=0.01)
     keywords = result.split(",")
     course_list = []
     error_message = ""
@@ -285,7 +286,7 @@ async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCO
 请确保总课时不超过用户要求，同时保持章节内容与用户需求相匹配。
 """
     
-    thinking, yaml_result = await llm.chat(prompt, stream=False)
+    thinking, yaml_result = await llm.chat(prompt, stream=False, temperature=0.01)
     chapters = parse_markdown_yaml(yaml_result)
     if not chapters:
         return course_dict, False, "生成的章节格式不正确，应为列表"

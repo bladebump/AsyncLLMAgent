@@ -4,8 +4,6 @@ from apis.competition_utils.schema import Competition, CTFGroup, stage_map
 from apis.utils import update_field_by_path, get_field_by_path, check_item_missing_field, parse_markdown_json
 from utils.log import logger
 from core.config import config
-import re
-import json
 import random
 import httpx
 
@@ -15,6 +13,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
     
     Args:
         competition: 当前竞赛配置
+        user_input: 用户输入
         llm: 语言模型
         
     Returns:
@@ -51,7 +50,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
 
 注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"竞赛配置完成"。
 """
-    thinking, next_step = await llm.chat(prompt, stream=False)
+    thinking, next_step = await llm.chat(prompt, stream=False, temperature=0.01)
     
     # 检查返回的内容，如果包含"竞赛配置完成"就标准化
     if "竞赛配置完成" in next_step:
@@ -68,6 +67,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
         user_input: 用户输入
         history: 对话历史
         llm: 语言模型
+        token: 用户token
         
     Returns:
         tuple: (更新后的竞赛对象, 更新消息)
@@ -132,7 +132,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
     
-    thinking, parse_result = await llm.chat(prompt, stream=False)
+    thinking, parse_result = await llm.chat(prompt, stream=False, temperature=0.01)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:

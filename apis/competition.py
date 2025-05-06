@@ -118,7 +118,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
         history.append(Message.user_message(prompt))
         all_answer = ""
         thinking = ""
-        async for chunk_thinking, chunk_response in await llm.chat(messages=history, stream=True):
+        async for chunk_thinking, chunk_response in await llm.chat(messages=history, stream=True, temperature=0.01):
             thinking += chunk_thinking
             all_answer += chunk_response
             if createCompetitionRequest.use_cot_model:
