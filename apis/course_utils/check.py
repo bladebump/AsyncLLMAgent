@@ -112,9 +112,6 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
    - 只能调用add_chapter函数添加章节
    - 不允许update chapterList
 
-如果用户意图不明确，请返回:
-{{"action": "none", "description": "无法确定用户意图"}}
-
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
     messages = deepcopy(history)
