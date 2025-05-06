@@ -23,7 +23,7 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
     course_dict = course.model_dump(mode='python')
     missing_fields = check_item_missing_field(course)
     prompt = f"""
-根据下面列出的课程配置中缺失的字段，你需要确定下一步用户填写内容，并按照严格的格式返回回答。
+根据下面列出的课程配置中缺失的字段，你需要确定下一步用户填写内容，并按照格式返回回答。
 
 <用户输入>
 {user_input}
@@ -40,13 +40,11 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
 【回答要求】
 请严格按照以下规则回答:
 
-1. 只有在用户明确表示完成创建时，才返回"课程配置完成"这五个字，不添加任何其他内容
-2. 在其他情况下（即使没有缺失字段），返回简洁的下一步引导提示，可以是:
+1. 在用户明确表示完成创建时，返回"课程配置完成"这五个字，不添加任何其他内容
+2. 在其他情况下，返回简洁的下一步引导提示，可以是:
    - 需要填写的缺失字段信息
    - 可添加/修改的内容建议
    - 询问用户是否确认完成创建
-
-注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"课程配置完成"。
 """
     thinking, next_step = await llm.chat(prompt, stream=False, temperature=0.01)
     
