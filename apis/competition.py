@@ -66,7 +66,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     
     competition_data = json.loads(competition_json) if competition_json else {}    
     if not competition_data:
-        competition = Competition(baseInfo=CompetitionBaseInfo(), stageList=[])
+        competition = Competition()
     else:
         competition = Competition.model_validate(competition_data)
     is_completed = False

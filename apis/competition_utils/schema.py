@@ -29,7 +29,7 @@ class CompetitionStage(BaseModel):
     startTime: str | None = Field(description="阶段开始时间，格式为'YYYY-MM-DD HH:MM:SS'，一般为4个小时左右", default_factory=lambda: (datetime.now() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S'))
     endTime: str | None = Field(description="阶段结束时间，格式为'YYYY-MM-DD HH:MM:SS'，一般为4个小时左右", default_factory=lambda: (datetime.now() + timedelta(hours=28)).strftime('%Y-%m-%d %H:%M:%S'))
     enterCondition: EnterCondition = Field(description="题目开启的限制条件，决定本阶段题目的出现形式", default_factory=EnterCondition)
-    mode: str | None = Field(description="阶段类型，可以是CTF、AWD、BTC或THEORY", default='CTF')
+    mode: str | None = Field(description="阶段类型，可以是CTF、AWD、BTC", default='CTF')
 
 class CTFGroup(BaseModel):
     name: str | None = Field(description="组名，一般为'WEB'、'RE'、'PWN'，一般和这个组的题目类型相同", default=None)
@@ -77,18 +77,13 @@ class CTFStage(CompetitionStage):
     groupList: list[CTFGroup] | None = Field(description="CTF组列表，表示此阶段题目分为哪些组，是一个列表。仅仅引导用户输入['web', 'pwn']这种即可，或者让用户说需要什么组。", default_factory=lambda: [CTFGroup(name='WEB'), CTFGroup(name='MISC'), CTFGroup(name='RE'), CTFGroup(name='PWN')])
 
 class AWDConfig(BaseModel):
-    initPoint: int | None = Field(description="初始分值，设置参赛者的初始分数", default=None)
-    roundTime: int | None = Field(description="每轮时长，单位为分钟", default=None)
-    isFreeReset: bool | None = Field(description="是否免费重置，True表示可以免费重置，但有次数限制，超出会扣分，False重置不需要扣分", default=None)
-    freeResetQty: int | None = Field(description="免费重置次数", default=None)
-    resetReduceScore: int | None = Field(description="当不能免费重置的时候，重置需要扣除的分数", default=None)
-    resetProtectionTime: int | None = Field(description="重置保护时间，单位为分钟，设置重置后的保护时间", default=None)
-    isResettable: bool | None = Field(description="是否开放选手端重制靶机，True表示可以重置，False表示不能", default=None)
-
-class AWDScorePolicyData(BaseModel):
-    attackScore: int | None = Field(description="攻击得分", default=None)
-    defendScore: int | None = Field(description="防御得分", default=None)
-    unavailableScore: int | None = Field(description="不可用得分", default=None)
+    initPoint: int | None = Field(description="初始分值，设置参赛者的初始分数", default=2000)
+    roundTime: int | None = Field(description="每轮时长，单位为分钟", default=15)
+    isFreeReset: bool | None = Field(description="是否免费重置，True表示可以免费重置，但有次数限制，超出会扣分，False重置不需要扣分", default=True)
+    freeResetQty: int | None = Field(description="免费重置次数", default=3)
+    resetReduceScore: int | None = Field(description="当不能免费重置的时候，重置需要扣除的分数", default=10)
+    resetProtectionTime: int | None = Field(description="重置保护时间，单位为分钟，设置重置后的保护时间", default=3)
+    isResettable: bool | None = Field(description="是否开放选手端重制靶机，True表示可以重置，False表示不能", default=True)
 
 score_policy_data_str = """
 如果type是DEFAULT（默认）:
@@ -107,8 +102,8 @@ score_policy_data_str = """
 """
 
 class AWDScorePolicy(BaseModel):
-    type: str | None = Field(description="计分方式，DEFAULT(默认)、ZERO_SUM(零和)", default=None)
-    data: dict | None = Field(description=score_policy_data_str, default=None)
+    type: str | None = Field(description="计分方式，DEFAULT(默认)、ZERO_SUM(零和)", default='DEFAULT')
+    data: dict | None = Field(description=score_policy_data_str, default_factory=lambda: {'attackScore': 15, 'defendScore': 10, 'unavailableScore': 200})
 
 class AWDStage(CompetitionStage):
     mode: ModeType = ModeType.AWD
@@ -117,44 +112,25 @@ class AWDStage(CompetitionStage):
     corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，类型只有WEB和PWN，仅仅需要用户说明难度和类型即可", default=None)
 
 class BTCScorePolicy(BaseModel):
-    additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=None)
-    first: int | None = Field(description="只有在additional为TRUE时有效，第一名得分，通常为15，如果additional为FALSE，则用0即可", default=None)
-    second: int | None = Field(description="只有在additional为TRUE时有效，第二名得分，通常为10，如果additional为FALSE，则用0即可", default=None)
-    third: int | None = Field(description="只有在additional为TRUE时有效，第三名得分，通常为5，如果additional为FALSE，则用0即可", default=None)
+    additional: bool | None = Field(description="TRUE表示前三通关额外加分,FALSE表示普通积分方式", default=True)
+    first: int | None = Field(description="只有在additional为TRUE时有效，第一名得分，通常为15，如果additional为FALSE，则用0即可", default=15)
+    second: int | None = Field(description="只有在additional为TRUE时有效，第二名得分，通常为10，如果additional为FALSE，则用0即可", default=10)
+    third: int | None = Field(description="只有在additional为TRUE时有效，第三名得分，通常为5，如果additional为FALSE，则用0即可", default=5)
 
 class BTCStage(CompetitionStage):
     mode: ModeType = ModeType.BTC
     scorePolicy: BTCScorePolicy = Field(description="计分规则，设置BTC阶段的计分方式", default_factory=BTCScorePolicy)
     corpusId: list[int] | None = Field(description="题库ID，表示此阶段题目来自哪些题库，BTC只有一个题目,类型只有WEB，仅仅需要用户说明难度即可", default=None)
 
-class THEORYConfig(BaseModel):
-    isShowAllStem: bool | None = Field(description="是否显示所有题，True表示一次性显示所有题目，False表示逐题显示", default=None)
-    isRandomStem: bool | None = Field(description="是否随机出题，True表示随机顺序，False表示固定顺序", default=None)
-    canSubmitPaper: bool | None = Field(description="是否开放交卷，True表示可以主动交卷，False表示只能等时间结束", default=None)
-    canReviewScore: bool | None = Field(description="是否开放查分，True表示可以查看得分，False表示不能", default=None)
-    canReviewPaper: bool | None = Field(description="是否开放查卷，True表示可以查看试卷和答案，False表示不能", default=None)
-    canReviewAnalysis: bool | None = Field(description="是否开放查看解析，True表示可以查看解析，False表示不能", default=None)
-    paperId: int | None = Field(description="试卷ID，关联到具体的理论试卷", default=None)
-    paperName: str | None = Field(description="试卷名称，表示此阶段试卷的名称", default=None)
-    mode: str | None = Field(description="答题模式，REGULAR_SCOPE(固定时间开始结束)、REGULAR_SCOPE_TIME(固定答题时长)", default=None)
-    useTime: int | None = Field(description="答题时长，单位为分钟。REGULAR_SCOPE_TIME选手答题的时间是受到useTime的限制。如果是REGULAR_SCOPE，则useTime无效", default=None)
-    startTime: str | None = Field(description="开始时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
-    endTime: str | None = Field(description="结束时间，格式为'YYYY-MM-DD HH:MM:SS'", default=None)
-
-class THEORYStage(CompetitionStage):
-    mode: ModeType = ModeType.THEORY
-    config: THEORYConfig = Field(description="配置，THEORY阶段的具体配置", default_factory=THEORYConfig)
-
 stage_map = {
     "CTF": CTFStage,
     "AWD": AWDStage,
     "BTC": BTCStage,
-    "THEORY": THEORYStage,
 }
 
 class Competition(BaseModel):
     baseInfo: CompetitionBaseInfo = Field(description="竞赛基本信息，包含竞赛名称、简介等基础信息", default_factory=CompetitionBaseInfo)
-    stageList: list[CompetitionStage] | None = Field(description="阶段列表，可以创建CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）、THEORY（理论赛）四种阶段，让用户输入要创建一个怎么样的阶段", default_factory=lambda: [CTFStage(name='CTF阶段')])
+    stageList: list[CompetitionStage] | None = Field(description="阶段列表，可以创建CTF（夺旗赛）、AWD（攻防赛）、BTC（闯关赛）三种阶段，让用户输入要创建一个怎么样的阶段", default_factory=lambda: [CTFStage(name='CTF阶段')])
     
     @classmethod
     def model_validate(cls, obj, *args, **kwargs):
