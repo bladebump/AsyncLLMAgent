@@ -75,6 +75,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
     
     # 检查竞赛配置的完整性，确定下一步需要填写的信息
     next_step, missing_fields = await analyze_competition_completeness(competition, user_input, llm)
+    logger.debug(f"竞赛配置完整性检查结果: {next_step}, {missing_fields}")
     if next_step == "竞赛配置完成":
         is_completed = True
         prompt = f"""
