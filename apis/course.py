@@ -35,9 +35,10 @@ async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBase
     is_completed = False
     course, update_message = await process_user_input(course, user_input, history, llm, createCourseRequest.token)
     next_step, missing_fields = await analyze_course_completeness(course, user_input, llm)
+    logger.debug(f"next_step: {next_step}")
     tags = await get_tags(createCourseRequest.token)
     
-    if next_step == "课程配置完成":
+    if "课程配置完成" in next_step:
         is_completed = True
         prompt = f"""
 课程配置已经完成，可以提交创建。以下是您的课程配置信息：
@@ -105,4 +106,5 @@ async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBase
             "history": history
         }
         yield f"data: {json.dumps(result)}\n\n"
+        logger.debug(f"创建完成: {result}")
     return StreamingResponse(generate(), media_type="text/event-stream")
