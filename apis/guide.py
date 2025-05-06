@@ -11,7 +11,7 @@ import json
 guide_router = APIRouter(prefix="/guide")
 
 class GuideRequest(BaseModel):
-    wp: str  # 题目的WP
+    wp: str  # 题目的WP，用于指导模型理解题目和解题思路
     description: str  # 题目描述
     events: list[Event]  # 学员操作event
     history: list[dict] = []  # 对话历史记录
@@ -33,16 +33,23 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
 题目描述: {request.description}
 题目WP: {request.wp}
 
+# 指导原则
+1. 你可以参考WP来理解题目的解题思路和关键步骤，但在回答中绝不直接复制或透露WP中的具体操作步骤
+2. 对于学员的问题，提供启发性的引导而非直接的解决方案
+3. 根据学员的当前进度，适当引导他们思考下一个可能的方向
+4. 即使学员直接询问解题步骤，也只给出方向性提示，而不是具体操作指令
+
 # 回答要求
 1. 如果问题是关于题目解题思路的:
    - 分析学员当前的操作和进度
-   - 提供适当的引导，但不要直接告诉下一步要做什么
-   - 可以提示相关的知识点或方向
+   - 提供启发性的引导，但不要直接告诉下一步具体要做什么
+   - 可以提示相关的知识点或思考方向
+   - 遇到学员卡住的情况，给出适度提示，激发学员思考能力
    
 2. 如果问题是关于知识点的:
-   - 提供详细的知识点解释
+   - 提供知识点的基本原理解释
    - 可以结合题目场景进行说明
-   - 确保解释清晰易懂
+   - 确保解释清晰易懂，但不要暗示具体解题步骤
 
 3. 回答格式:
    - 使用中文回答
@@ -65,6 +72,9 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
 
 # 学员问题
 {request.question}
+
+# 重要提示
+记住：参考WP内容理解题目，但不要在回答中直接透露具体解题步骤，只提供启发性的引导，让学员自己思考解决方案。
 """
     history.append({'role': "user", 'content': user_msg})
     llm = cot_llm if request.use_cot_model else llm
