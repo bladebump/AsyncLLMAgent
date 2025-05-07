@@ -23,8 +23,6 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
     """
     学员引导接口，根据题目信息、学员操作和问题提供引导或解答
     """
-    logger.debug(f"收到学员引导请求: {request}")
-    
     # 构建系统提示
     system_prompt = f"""
 你是一个专业的网络安全靶场导师。你的任务是根据学员的操作和问题提供适当的引导或解答。
@@ -71,7 +69,7 @@ async def student_guide(request: GuideRequest, llm: AsyncBaseChatCOTModel = Depe
     async def generate():
         all_answer = ""
         thinking = ""
-        async for think, resp in await llm.chat(messages=history, stream=True):
+        async for think, resp, _ in await llm.chat(messages=history, stream=True):
             thinking += think
             all_answer += resp
             if request.use_cot_model:
@@ -115,7 +113,7 @@ async def conversation_summary(request: ConversationSummaryRequest, llm: AsyncBa
 {request.history}
 """
     use_llm = cot_llm if request.use_cot_model else llm
-    _, resp = await use_llm.chat(prompt=system_prompt, stream=False, temperature=0.01)
+    _, resp, _ = await use_llm.chat(prompt=system_prompt, stream=False, temperature=0.01)
     return {
         "code": 200,
         "error": "",
@@ -161,7 +159,7 @@ async def user_guide(request: UserGuideRequest, llm: AsyncBaseChatCOTModel = Dep
         history.append({'role': "user", 'content': prompt})
         all_answer = ""
         thinking = ""
-        async for think, resp in await llm.chat(messages=history, stream=True):
+        async for think, resp, _ in await llm.chat(messages=history, stream=True):
             thinking += think
             all_answer += resp
             if request.use_cot_model:

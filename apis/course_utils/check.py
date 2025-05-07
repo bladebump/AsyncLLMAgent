@@ -7,16 +7,7 @@ from core.config import config
 import httpx
 
 async def analyze_course_completeness(course: Course, user_input: str, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
-    """
-    分析课程配置的完整性，确定下一步需要填写的内容
-
-    Args:
-        course: 当前课程配置
-        llm: 语言模型
-        
-    Returns:
-        tuple: (下一步指导, 缺失字段列表)
-    """
+    """分析课程配置的完整性，确定下一步需要填写的内容"""
     course_dict = course.model_dump(mode='python')
     missing_fields = check_item_missing_field(course)
     prompt = f"""
@@ -45,7 +36,7 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
 
 注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"课程配置完成"。
 """
-    thinking, next_step = await llm.chat(prompt, stream=False)
+    thinking, next_step, _ = await llm.chat(prompt, stream=False)
     
     # 检查返回的内容，如果包含"竞赛配置完成"就标准化
     if "课程配置完成" in next_step:
@@ -54,18 +45,7 @@ async def analyze_course_completeness(course: Course, user_input: str, llm: Asyn
     return next_step, missing_fields
 
 async def process_user_input(course: Course, user_input: str, history: list[dict], llm: AsyncBaseChatCOTModel, token: str) -> tuple[Course, str]:
-    """
-    处理用户输入并更新course对象
-
-    Args:
-        course: 当前课程配置
-        user_input: 用户输入
-        history: 对话历史
-        llm: 语言模型
-    
-    Returns:
-        tuple: (更新后的课程对象, 更新消息)
-    """
+    """处理用户输入并更新course对象"""
     
     course_dict = course.model_dump(mode='python')
     missing_fields = check_item_missing_field(course)
@@ -112,7 +92,7 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
     
-    thinking, parse_result = await llm.chat(prompt, stream=False)
+    thinking, parse_result, _ = await llm.chat(prompt, stream=False)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
@@ -162,6 +142,7 @@ async def process_user_input(course: Course, user_input: str, history: list[dict
         return course, f"处理用户输入失败: {str(e)}"
 
 async def get_corpus_data(token: str, keyword: str) -> dict:
+    """获取课程数据"""
     url = f"{config.platform.url}/range-resource/api/knowledge/user/lists"
     params = {
         "page": 1,
@@ -192,6 +173,7 @@ async def get_corpus_data(token: str, keyword: str) -> dict:
         return [], f"获取知识点失败: {e}"
 
 async def generate_keyword_to_get_corpus(course_dict: dict, llm: AsyncBaseChatCOTModel, token: str) -> str:
+    """生成课程关键词"""
     prompt = f"""当前有这么一个课程信息
 {course_dict}
 
@@ -203,7 +185,7 @@ web安全,sql注入,xss攻击
 
 请生成：
 """
-    thinking, result = await llm.chat(prompt, stream=False)
+    thinking, result, _ = await llm.chat(prompt, stream=False)
     keywords = result.split(",")
     course_list = []
     error_message = ""
@@ -216,17 +198,7 @@ web安全,sql注入,xss攻击
     return course_list, error_message
 
 async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCOTModel, token: str) -> tuple[dict, bool, str]:
-    """添加章节到课程中
-    
-    Args:
-        course_dict: 课程配置字典
-        update_value: 用户需求
-        llm: 语言模型
-        token: 用户令牌
-        
-    Returns:
-        tuple: (更新后的课程配置, 是否成功, 错误信息)
-    """
+    """添加章节到课程中"""
     course_list, error_message = await generate_keyword_to_get_corpus(course_dict, llm, token)
     if error_message:
         return course_dict, False, error_message
@@ -285,7 +257,7 @@ async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCO
 请确保总课时不超过用户要求，同时保持章节内容与用户需求相匹配。
 """
     
-    thinking, yaml_result = await llm.chat(prompt, stream=False)
+    thinking, yaml_result, _ = await llm.chat(prompt, stream=False)
     chapters = parse_markdown_yaml(yaml_result)
     if not chapters:
         return course_dict, False, "生成的章节格式不正确，应为列表"
@@ -293,7 +265,8 @@ async def add_chapter(course_dict: dict, update_value: str, llm: AsyncBaseChatCO
     return course_dict, True, ""
 
 
-async   def get_tags(token: str) -> list[dict]:
+async def get_tags(token: str) -> list[dict]:
+    """获取平台课程标签"""
     url = f"{config.platform.url}/range-tag/api/selection/tag-select-list?service=range-edu&module=course"
     headers = {
         "Authorization": token
@@ -312,137 +285,4 @@ async   def get_tags(token: str) -> list[dict]:
             return tags_data
     except Exception as e:
         logger.error(f"获取标签失败: {e}")
-        return [
-        {
-            "value": 195,
-            "label": "课程分类/安全工具/渗透工具",
-        },
-        {
-            "value": 204,
-            "label": "课程分类/安全工具/逆向工具",
-        },
-        {
-            "value": 196,
-            "label": "课程分类/攻防竞赛/CTF夺旗赛",
-        },
-        {
-            "value": 197,
-            "label": "课程分类/信息安全基础/网络安全",
-        },
-        {
-            "value": 198,
-            "label": "课程分类/信息安全基础/网络安全协议",
-        },
-        {
-            "value": 201,
-            "label": "课程分类/信息安全基础/操作系统基础",
-        },
-        {
-            "value": 206,
-            "label": "课程分类/信息安全基础/密码学",
-        },
-        {
-            "value": 210,
-            "label": "课程分类/信息安全基础/安全行业信息",
-        },
-        {
-            "value": 218,
-            "label": "课程分类/信息安全基础/保密意识",
-        },
-        {
-            "value": 219,
-            "label": "课程分类/信息安全基础/安全意识",
-        },
-        {
-            "value": 220,
-            "label": "课程分类/信息安全基础/安全术语",
-        },
-        {
-            "value": 221,
-            "label": "课程分类/信息安全基础/网络安全法",
-        },
-        {
-            "value": 222,
-            "label": "课程分类/信息安全基础/系统安全",
-        },
-        {
-            "value": 226,
-            "label": "课程分类/信息安全基础/等级保护",
-        },
-        {
-            "value": 199,
-            "label": "课程分类/应用安全/代码审计",
-        },
-        {
-            "value": 200,
-            "label": "课程分类/应用安全/Web安全",
-        },
-        {
-            "value": 207,
-            "label": "课程分类/应用安全/渗透测试",
-        },
-        {
-            "value": 208,
-            "label": "课程分类/应用安全/二进制安全",
-        },
-        {
-            "value": 209,
-            "label": "课程分类/应用安全/云计算安全",
-        },
-        {
-            "value": 212,
-            "label": "课程分类/应用安全/大数据安全",
-        },
-        {
-            "value": 214,
-            "label": "课程分类/应用安全/移动安全",
-        },
-        {
-            "value": 216,
-            "label": "课程分类/应用安全/工控安全",
-        },
-        {
-            "value": 224,
-            "label": "课程分类/应用安全/数据库安全",
-        },
-        {
-            "value": 225,
-            "label": "课程分类/应用安全/物联网安全",
-        },
-        {
-            "value": 202,
-            "label": "课程分类/安全编程/数据库技术",
-        },
-        {
-            "value": 205,
-            "label": "课程分类/安全编程/编程技术",
-        },
-        {
-            "value": 213,
-            "label": "课程分类/安全编程/安全开发",
-        },
-        {
-            "value": 203,
-            "label": "课程分类/安全运维/安全加固",
-        },
-        {
-            "value": 211,
-            "label": "课程分类/安全运维/安全防护技术",
-        },
-        {
-            "value": 217,
-            "label": "课程分类/安全运维/电子取证",
-        },
-        {
-            "value": 227,
-            "label": "课程分类/安全运维/应急响应",
-        },
-        {
-            "value": 215,
-            "label": "课程分类/数据安全/数据存储安全",
-        },
-        {
-            "value": 223,
-            "label": "课程分类/数据安全/数字水印",
-        }
-    ]
+        return []

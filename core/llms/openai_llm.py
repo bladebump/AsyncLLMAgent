@@ -72,7 +72,9 @@ class OpenAICoT(AsyncBaseChatCOTModel):
     async def _chat_stream(self, 
                     messages: List[ dict], 
                     stop: List[str] | None = None,
-                    **kwargs) -> AsyncIterator[Tuple[str, str]]:
+                    tools: List[dict] | None = None, 
+                    tool_choice: ToolChoice = ToolChoice.AUTO,
+                    **kwargs) -> AsyncIterator[Tuple[str, str, list]]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: True | Messages: {messages}')
         
         temperature = kwargs.pop('temperature', config.model.temperature)
@@ -82,6 +84,8 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             model=self.model,
             messages=messages,
             stop=stop,
+            tools=tools,
+            tool_choice=tool_choice,
             stream=True,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -92,9 +96,11 @@ class OpenAICoT(AsyncBaseChatCOTModel):
         return self._process_stream_response(response)
 
     async def _chat_no_stream(self, 
-                       messages: List[dict], 
-                       stop: List[str] | None = None,
-                       **kwargs) -> Tuple[str, str]:
+                        messages: List[dict], 
+                        stop: List[str] | None = None,
+                        tools: List[dict] | None = None, 
+                        tool_choice: ToolChoice = ToolChoice.AUTO,
+                        **kwargs) -> Tuple[str, str, list]:
         logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: False | Messages: {messages}')
         
         temperature = kwargs.pop('temperature', config.model.temperature)
@@ -104,6 +110,8 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             model=self.model,
             messages=messages,
             stop=stop,
+            tools=tools,
+            tool_choice=tool_choice,
             stream=False,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -113,22 +121,7 @@ class OpenAICoT(AsyncBaseChatCOTModel):
             
         message = response.choices[0].message
         return (
-            getattr(message, 'reasoning_content', ''),  # 兼容无推理内容的情况
-            message.content
+            getattr(message, 'reasoning_content', ''),
+            message.content,
+            getattr(message, 'tool_calls', [])
         )
-
-    async def chat_with_tools(self, messages: List[Union[Message, dict]], 
-                              tools: List[dict] | None = None, 
-                              tool_choice: ToolChoice = ToolChoice.AUTO,
-                              **kwargs) -> Message:
-        """支持MCP工具调用的对话接口"""
-        messages = self.format_messages(messages)
-        logger.info(f'Calling OpenAI CoT API | Model: {self.model} | Stream: False | Messages: {messages}')
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
-            **kwargs
-        )
-        return response.choices[0].message

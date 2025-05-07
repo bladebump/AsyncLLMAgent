@@ -20,6 +20,7 @@ class CreateCourseRequest(BaseModel):
 
 @course_router.post("/create_course")
 async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBaseChatCOTModel = Depends(get_llm), cot_llm: AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+    """创建课程"""
     system_prompt = "你是一个课程创建助手，需要根据用户当前的课程配置情况和对话历史，引导用户填写剩余的课程信息，并确保课程配置的完整性。"
     llm = cot_llm if createCourseRequest.use_cot_model else llm
     
@@ -80,7 +81,7 @@ async def create_course(createCourseRequest: CreateCourseRequest, llm: AsyncBase
         history.append(Message.user_message(prompt))
         all_answer = ""
         thinking = ""
-        async for chunk_thinking, chunk_response in await llm.chat(messages=history, stream=True):
+        async for chunk_thinking, chunk_response, _ in await llm.chat(messages=history, stream=True):
             thinking += chunk_thinking
             all_answer += chunk_response
             if createCourseRequest.use_cot_model:

@@ -2,9 +2,8 @@ import json
 from typing import Any, List, Optional, Union
 from core.agent.react import ReActAgent
 from utils.log import logger
-from core.schema import AgentState, Message, ToolCall, ToolChoice, AgentResult
+from core.schema import AgentState, Message, ToolCall, ToolChoice
 from core.tools import Terminate, ToolCollection
-from core.llms.errors import TokenLimitExceeded
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
 
@@ -71,17 +70,13 @@ class ToolCallAgent(ReActAgent):
         if self.next_step_prompt:
             await self.memory.add(Message.user_message(self.next_step_prompt))
 
-        response = await self.llm.chat_with_tools(
+        thinking, content, tool_calls = await self.llm.chat(
             messages=self.memory.Messages,
             tools=self.available_tools.to_params(),
             tool_choice=self.tool_choices,
+            stream=False,
         )
-
-        self.tool_calls = tool_calls = (
-            response.tool_calls if response and response.tool_calls else []
-        )
-        content = response.content if response and response.content else ""
-
+        self.tool_calls = tool_calls
         # 记录响应信息
         logger.info(f"✨ {self.name}'s thoughts: {content}")
         logger.info(
@@ -91,52 +86,22 @@ class ToolCallAgent(ReActAgent):
             logger.info(
                 f"🧰 正在准备工具: {[call.function.name for call in tool_calls]}"
             )
-            logger.info(f"🔧 工具参数: {tool_calls[0].function.arguments}")
+            logger.info(f"🔧 工具参数: {[call.function.arguments for call in tool_calls]}")
 
-        try:
-            if response is None:
-                raise RuntimeError("未从LLM收到响应")
+        assistant_msg = (
+            Message.from_tool_calls(content=content, tool_calls=self.tool_calls)
+            if self.tool_calls
+            else Message.assistant_message(content)
+        )
+        await self.memory.add(assistant_msg)
+        return content
 
-            # 处理不同的tool_choices模式
-            if self.tool_choices == ToolChoice.NONE:
-                if tool_calls:
-                    logger.warning(
-                        f"🤔 嗯，{self.name} 尝试使用工具，但它们不可用！"
-                    )
-                if content:
-                    await self.memory.add(Message.assistant_message(content))
-                    return True
-                return False
-
-            # 创建并添加助手消息
-            assistant_msg = (
-                Message.from_tool_calls(content=content, tool_calls=self.tool_calls)
-                if self.tool_calls
-                else Message.assistant_message(content)
-            )
-            await self.memory.add(assistant_msg)
-
-            if self.tool_choices == ToolChoice.REQUIRED and not self.tool_calls:
-                return True  # 将在act()中处理
-
-            # 对于'auto'模式，如果没有任何命令但存在内容，则继续
-            if self.tool_choices == ToolChoice.AUTO and not self.tool_calls:
-                return bool(content)
-
-            return bool(self.tool_calls)
-        except Exception as e:
-            logger.error(f"🚨 嗯，{self.name} 的思考过程遇到了问题: {e}")
-            await self.memory.add(Message.assistant_message(
-                f"处理时遇到错误: {str(e)}"
-            ))
-            return False
-
-    async def act(self) -> AgentResult:
+    async def act(self) -> str:
         """执行工具调用并处理其结果"""
         if not self.tool_calls:
             # 如果没有任何命令，返回最后一条消息的内容
             messages = await self.memory.get_last_n_messages(1)
-            return AgentResult("", result=messages[0].content or "没有内容或命令要执行")
+            return messages[0].content or "没有内容或命令要执行"
 
         results = []
         for command in self.tool_calls:

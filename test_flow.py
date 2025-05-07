@@ -25,16 +25,10 @@ async def main():
             }
         }
     ]
-    response = await llm.chat_with_tools_with_thinking([
+    response = await llm.chat(messages=[
         {"role": "user", "content": "你好，我想知道北京今天的天气怎么样？"}
-    ], tools = tools)
-    async for thinking, result, tool_calls in response:
-        if thinking:
-            print(thinking)
-        if result:
-            print(result)
-        if tool_calls:
-            print(tool_calls)
+    ], tools = tools, stream=False)
+    print(response)
 
 if __name__ == "__main__":
     asyncio.run(main())

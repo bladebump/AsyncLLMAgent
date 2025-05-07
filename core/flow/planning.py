@@ -148,10 +148,11 @@ class PlanningFlow(BaseFlow):
         )
 
         # 使用PlanningTool调用LLM
-        response = await self.llm.chat_with_tools(
+        response = await self.llm.chat(
             messages=[system_message, user_message],
             tools=[self.planning_tool.to_param()],
             tool_choice=ToolChoice.AUTO,
+            stream=False,
         )
 
         # 如果存在工具调用，则处理它们
@@ -396,7 +397,7 @@ class PlanningFlow(BaseFlow):
                 f"计划已完成。以下是最终计划状态:\n\n{plan_text}\n\n请提供已完成的内容总结和任何最终想法。"
             )
 
-            thinking, response = await self.llm.chat(
+            thinking, response, _ = await self.llm.chat(
                 messages=[system_message, user_message],
                 stream=False,
             )

@@ -2,7 +2,7 @@ from typing import List, Optional, Union, Any, Tuple, AsyncIterator
 import asyncio
 from core.agent.toolcall import ToolCallAgent
 from core.tools import ToolCollection
-from core.schema import AgentState, Message, AgentDone, ToolChoice
+from core.schema import AgentState, Message, AgentDone, ToolChoice, AgentResult
 from utils.log import logger
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
@@ -88,29 +88,24 @@ class SummaryToolCallAgent(ToolCallAgent):
         try:
             # 创建总结提示
             summary_prompt = Message.user_message(SUMMARIZE_PROMPT.format(request=self.request))
-            
             # 获取完整对话历史
-            history = self.memory.Messages.copy()
-            
-            # 添加总结提示
-            history.append(summary_prompt)
-            
+            self.memory.add(summary_prompt)
             # 使用LLM生成总结
             logger.info("生成对话总结...")
-            response = await self.llm.chat(messages=history, stream=stream)
-                
+            response = await self.llm.chat(messages=self.memory.Messages, stream=stream)
             return response
         except Exception as e:
             logger.error(f"生成总结时发生错误: {e}")
             return f"无法生成总结: {str(e)}"
     
-    async def run(self, request: Optional[str] = None) -> str:
+    async def run(self, request: Optional[str] = None) -> list[AgentResult]:
         """重写run方法以返回summary结果"""
-        _ = await super().run(request)
-        result = await self._generate_summary()
-        return result
+        results = await super().run(request)
+        thinking, content, _ = await self._generate_summary()
+        results.append(AgentResult(reason=thinking, result=content))
+        return results
     
-    async def _run_and_fill_queue(self, queue: asyncio.Queue) -> None:
+    async def _run_and_fill_queue(self, queue: asyncio.Queue):
         """内部方法，执行步骤并将结果放入队列。"""
         async with self.state_context(AgentState.RUNNING):
             while (

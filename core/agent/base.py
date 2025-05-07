@@ -53,17 +53,7 @@ class BaseAgent(ABC):
 
     @asynccontextmanager
     async def state_context(self, new_state: AgentState):
-        """安全代理状态转换的上下文管理器。
-
-        Args:
-            new_state: 在上下文期间要转换到的状态。
-
-        Yields:
-            None: 允许在新的状态下执行。
-
-        Raises:
-            ValueError: 如果new_state无效。
-        """
+        """安全代理状态转换的上下文管理器。"""
         if not isinstance(new_state, AgentState):
             raise ValueError(f"Invalid state: {new_state}")
 
@@ -78,17 +68,7 @@ class BaseAgent(ABC):
             self.state = previous_state  # 恢复到之前的状态
 
     async def run(self, request: Optional[str] = None) -> list[AgentResult]:
-        """异步执行代理的主循环。
-
-        Args:
-            request: 可选的初始用户请求。
-
-        Returns:
-            总结执行结果的字符串。
-
-        Raises:
-            RuntimeError: 如果代理在开始时不是IDLE状态。
-        """
+        """非流式异步执行代理的主循环。"""
         if self.state != AgentState.IDLE:
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
@@ -118,18 +98,7 @@ class BaseAgent(ABC):
         return results
     
     async def run_stream(self, request: Optional[str] = None) -> asyncio.Queue:
-        """异步执行代理的主循环，使用队列返回结果。
-
-        Args:
-            request: 可选的初始用户请求。
-
-        Returns:
-            asyncio.Queue: 包含结果的队列，可以通过queue.get()获取结果。
-                           最后会返回一个AgentDone对象标记执行完成。
-
-        Raises:
-            RuntimeError: 如果代理在开始时不是IDLE状态。
-        """
+        """流式异步执行代理的主循环，使用队列返回结果。"""
         result_queue = asyncio.Queue()
         
         if self.state != AgentState.IDLE:

@@ -13,7 +13,7 @@ class LawRag(BaseRag):
         """获取查询文档"""
         query = self.query_template.format(query=self.query)
         self.messages.append(Message.user_message(content=query))
-        _, resp = await self.llm.chat(messages=self.messages)
+        _, resp, _ = await self.llm.chat(messages=self.messages)
         query_list = resp.split("\n")
 
         query_list = [query for query in query_list if (query != "") and (len(query) >= 1)]

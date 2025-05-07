@@ -36,17 +36,7 @@ class AsyncBaseLLMModel(ABC):
         stop: List[str] | None = None,
         stream: bool = False,
         **kwargs
-    ) -> Union[Tuple[str, str], AsyncIterator[Tuple[str, str]]]:
-        raise NotImplementedError
-    
-    @abstractmethod
-    async def chat_with_tools(
-        self,
-        messages: List[Union[Message, dict]],
-        tools: List[dict] | None = None,
-        tool_choice: ToolChoice = ToolChoice.AUTO,
-        **kwargs
-    ) -> Message:
+    ) -> Union[Tuple[str, str, list], AsyncIterator[Tuple[str, str, list]]]:
         raise NotImplementedError
     
     @staticmethod
@@ -131,14 +121,13 @@ class AsyncBaseChatCOTModel(AsyncBaseLLMModel):
         stop: List[str] | None = None,
         stream: bool = False,
         **kwargs
-    ) -> Union[Tuple[str, str], AsyncIterator[Tuple[str, str]]]:
+    ) -> Union[Tuple[str, str, list], AsyncIterator[Tuple[str, str, list]]]:
         # 处理消息格式
         if not messages and prompt and isinstance(prompt, str):
             messages = [Message.user_message(prompt)]
             
         # 强制使用消息格式
         assert messages and len(messages) > 0, "Messages cannot be empty"
-        
         
         messages = self.format_messages(messages)
 

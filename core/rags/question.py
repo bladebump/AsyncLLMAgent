@@ -20,7 +20,7 @@ class QuestionRag(BaseRag):
         """获取查询文档"""
         query = self.query_template.format(query=self.query)
         self.messages.append(Message.user_message(content=query))
-        _, resp = await self.llm.chat(messages=self.messages)
+        _, resp, _ = await self.llm.chat(messages=self.messages)
         
         # 提取所有查询词
         query_list = [line.strip() for line in resp.split("\n") if line.strip()]
