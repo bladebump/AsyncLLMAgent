@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import List, Optional, AsyncIterator
 import asyncio
 from utils.log import logger
 from core.llms.base import AsyncBaseChatCOTModel
@@ -77,7 +77,7 @@ class BaseAgent(ABC):
         finally:
             self.state = previous_state  # 恢复到之前的状态
 
-    async def run(self, request: Optional[str] = None) -> AgentResult:
+    async def run(self, request: Optional[str] = None) -> list[AgentResult]:
         """异步执行代理的主循环。
 
         Args:
@@ -96,7 +96,7 @@ class BaseAgent(ABC):
             self.request = request
             await self.memory.add(Message.user_message(request))
 
-        results: List[str] = []
+        results: List[AgentResult] = []
         async with self.state_context(AgentState.RUNNING):
             while (
                 self.current_step < self.max_steps and self.state != AgentState.FINISHED
@@ -109,13 +109,13 @@ class BaseAgent(ABC):
                 if await self.is_stuck():
                     await self.handle_stuck_state()
 
-                results.append(f"Step {self.current_step}: {step_result}")
+                results.append(step_result)
 
             if self.current_step >= self.max_steps:
                 self.current_step = 0
                 self.state = AgentState.IDLE
-                results.append(f"终止: 达到最大步骤 ({self.max_steps})")
-        return "\n".join(results) if results else "未执行步骤"
+                results.append(AgentResult(reason="", result="终止: 达到最大步骤"))
+        return results
     
     async def run_stream(self, request: Optional[str] = None) -> asyncio.Queue:
         """异步执行代理的主循环，使用队列返回结果。
@@ -153,13 +153,11 @@ class BaseAgent(ABC):
             ):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{self.max_steps}")
-                step_result = await self.step()
+                await self.step_stream(queue)
 
                 # Check for stuck state
                 if await self.is_stuck():
                     await self.handle_stuck_state()
-
-                await queue.put(f"Step {self.current_step}: {step_result}")
 
             if self.current_step >= self.max_steps:
                 self.current_step = 0
@@ -172,6 +170,12 @@ class BaseAgent(ABC):
     @abstractmethod
     async def step(self) -> AgentResult:
         """执行代理工作流中的单个步骤。
+        必须由子类实现以定义特定行为。
+        """
+
+    @abstractmethod
+    async def step_stream(self, queue: asyncio.Queue):
+        """执行代理工作流中的单个步骤，使用流返回结果。
         必须由子类实现以定义特定行为。
         """
 

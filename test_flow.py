@@ -1,34 +1,40 @@
 import asyncio
-from core.flow import PlanningFlow
-from core.agent import ToolCallAgent
-from core.llms import OpenAICoT
+from core.llms.qwen_llm import QwenCoT
 from core.config import config
-from core.mem import ListMemory
-from core.tools import Bash
 
 async def main():
-    llm = OpenAICoT(
-        api_base=config.llm.api_base,
-        api_key=config.llm.api_key,
-        model=config.llm.model,
+    llm_config = config.llm_providers["qwen"]
+    llm = QwenCoT(
+        api_base=llm_config.api_base,
+        api_key=llm_config.api_key,
+        model=llm_config.model,
+        enable_thinking=True
     )
-    agent = ToolCallAgent(
-        llm=llm,
-        memory=ListMemory(),
-    )
-    agent.available_tools.add_tool(Bash())
-    flow = PlanningFlow(
-        llm=llm,
-        agents=[agent]
-    )
-    try:
-        result = await asyncio.wait_for(
-            flow.execute("如何才能将一个文件夹中的所有文件名打印出来"),
-            timeout=3600
-        )
-        print(result)
-    except asyncio.TimeoutError:
-        print("执行超时")
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "获取天气信息",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "city": {"type": "string", "description": "城市名称"}
+                    }
+                }   
+            }
+        }
+    ]
+    response = await llm.chat_with_tools_with_thinking([
+        {"role": "user", "content": "你好，我想知道北京今天的天气怎么样？"}
+    ], tools = tools)
+    async for thinking, result, tool_calls in response:
+        if thinking:
+            print(thinking)
+        if result:
+            print(result)
+        if tool_calls:
+            print(tool_calls)
 
 if __name__ == "__main__":
     asyncio.run(main())

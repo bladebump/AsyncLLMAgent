@@ -2,7 +2,7 @@ import json
 from typing import Any, List, Optional, Union
 from core.agent.react import ReActAgent
 from utils.log import logger
-from core.schema import AgentState, Message, ToolCall, ToolChoice
+from core.schema import AgentState, Message, ToolCall, ToolChoice, AgentResult
 from core.tools import Terminate, ToolCollection
 from core.llms.errors import TokenLimitExceeded
 from core.llms import AsyncBaseChatCOTModel
@@ -143,15 +143,12 @@ class ToolCallAgent(ReActAgent):
             ))
             return False
 
-    async def act(self) -> str:
+    async def act(self) -> AgentResult:
         """执行工具调用并处理其结果"""
         if not self.tool_calls:
-            if self.tool_choices == ToolChoice.REQUIRED:
-                raise ValueError(TOOL_CALL_REQUIRED)
-
             # 如果没有任何命令，返回最后一条消息的内容
             messages = await self.memory.get_last_n_messages(1)
-            return messages[0].content or "没有内容或命令要执行"
+            return AgentResult("", result=messages[0].content or "没有内容或命令要执行")
 
         results = []
         for command in self.tool_calls:
