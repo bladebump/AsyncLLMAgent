@@ -51,7 +51,6 @@ class ToolCallAgent(ReActAgent):
             self.available_tools = ToolCollection(Terminate())
         else:
             self.available_tools = available_tools
-            
         self.tool_choices = tool_choices
         
         # 初始化特殊工具名称
@@ -64,7 +63,7 @@ class ToolCallAgent(ReActAgent):
         self._current_base64_image = None
         self.max_observe = max_observe
 
-    async def think(self) -> bool:
+    async def think(self) -> str:
         """处理当前状态并决定下一步操作使用工具"""
         if not await self.memory.has_system() and self.system_prompt:
             await self.memory.add_system(Message.system_message(self.system_prompt))
@@ -72,22 +71,11 @@ class ToolCallAgent(ReActAgent):
         if self.next_step_prompt:
             await self.memory.add(Message.user_message(self.next_step_prompt))
 
-        try:
-            # 获取带有工具选项的响应
-            response = await self.llm.chat_with_tools(
-                messages=self.memory.Messages,
-                tools=self.available_tools.to_params(),
-                tool_choice=self.tool_choices,
-            )
-        except TokenLimitExceeded as e:
-            logger.error(f"🚨 令牌限制错误: {e}")
-            await self.memory.add(Message.assistant_message(
-                f"达到最大令牌限制，无法继续执行: {str(e)}"
-            ))
-            self.state = AgentState.FINISHED
-            return False
-        except Exception as e:
-            raise
+        response = await self.llm.chat_with_tools(
+            messages=self.memory.Messages,
+            tools=self.available_tools.to_params(),
+            tool_choice=self.tool_choices,
+        )
 
         self.tool_calls = tool_calls = (
             response.tool_calls if response and response.tool_calls else []
