@@ -44,9 +44,9 @@ class PlanningTool(BaseTool):
                 "type": "string",
             },
             "steps": {
-                "description": "计划的步骤列表。在create命令中是必需的，在update命令中是可选的。",
+                "description": "计划的步骤列表。在create命令中是必需的，在update命令中是可选的。格式为[{'agent_name': 'name','step':'step_string'}, {'agent_name': 'name','step':'step_string'}, {'agent_name': 'name','step':'step_string'}]，即指明用哪个agent执行哪个步骤。如果不知道agent_name，请使用'default'。",
                 "type": "array",
-                "items": {"type": "string"},
+                "items": {"agent_name": "string", "step": "string"},
             },
             "step_index": {
                 "description": "要更新的步骤的索引（从0开始）。在mark_step命令中是必需的。",
@@ -135,10 +135,10 @@ class PlanningTool(BaseTool):
         if (
             not steps
             or not isinstance(steps, list)
-            or not all(isinstance(step, str) for step in steps)
+            or not all(isinstance(step, dict) for step in steps)
         ):
             raise ToolError(
-                "参数 `steps` 在命令: create 中必须是非空字符串列表"
+                "参数 `steps` 在命令: create 中必须是非空字典列表"
             )
 
         # Create a new plan with initialized step statuses
@@ -158,7 +158,7 @@ class PlanningTool(BaseTool):
         )
 
     def _update_plan(
-        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[str]]
+        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[dict]]
     ) -> ToolResult:
         """更新一个具有新标题或步骤的现有计划。"""
         if not plan_id:
@@ -174,10 +174,10 @@ class PlanningTool(BaseTool):
 
         if steps:
             if not isinstance(steps, list) or not all(
-                isinstance(step, str) for step in steps
+                isinstance(step, dict) for step in steps
             ):
                 raise ToolError(
-                    "参数 `steps` 在命令: update 中必须是一个字符串列表"
+                    "参数 `steps` 在命令: update 中必须是一个字典列表"
                 )
 
             # Preserve existing step statuses for unchanged steps

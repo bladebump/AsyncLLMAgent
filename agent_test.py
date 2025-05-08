@@ -1,13 +1,10 @@
-from core.agent import ToolCallAgent, SummaryToolCallAgent
+from core.agent import ToolCallAgent
 import asyncio
 from core.config import config
 from core.llms.qwen_llm import QwenCoT
-from core.tools import GetWeather, RAGTool, MCPClients, Terminate
+from core.tools import GetWeather, RAGTool, MCPClients, PlanningTool
 from core.mem import ListMemory
-from core.schema import AgentDone, QueueEnd
-from core.embeddings.silicon_agent import SiliconEmbeddingAgent
-from core.vector.milvus import MilvusVectorStore
-from core.ranks import SiliconRankAgent
+from core.schema import AgentDone, QueueEnd, Message
 
 async def main():
     llm_config = config.llm_providers["qwen"]
@@ -17,41 +14,22 @@ async def main():
         model=llm_config.model,
         enable_thinking=True
     )
-    embedding = SiliconEmbeddingAgent(
-        url=config.embedding.api_base,
-        api_key=config.embedding.api_key,
-        model=config.embedding.model,
-    )
-    milvus = MilvusVectorStore(
-        uri=config.milvus.uri,
-        username=config.milvus.username,
-        password=config.milvus.password,
-        dense_vector_dim=config.milvus.dense_vector_dim,
-            use_sparse_vector=config.milvus.use_sparse_vector
-        )
     assistant = ToolCallAgent(
-        name="法律助手",
-        description="一个可以查询法律的助手",
+        name="计划生成助手",
+        description="一个可以生成计划的助手",
         llm=llm,
         memory=ListMemory(),
-    )
-    reranker = SiliconRankAgent(
-        url=config.reranker.api_base,
-        api_key=config.reranker.api_key,
-        model=config.reranker.model,
+        system_prompt = (
+            "你是一个计划助手。创建一个简洁、可操作的计划，具有清晰的步骤。 "
+            "专注于关键里程碑，而不是详细的子步骤。 "
+            "优化清晰度和效率。"
+            "你只需要创建计划即可，不需要执行计划。"
+        )
     )
     # mcp = MCPClients()
     # await mcp.connect_sse("https://mcp-8b5eddad-053e-451b.api-inference.modelscope.cn/sse")
-    assistant.available_tools.add_tool(RAGTool(
-        description="一个可以查询法律的工具，会去检索相关文档，并返回检索到的文档内容，只有当用户的问题与法律相关时，才使用这个工具",
-        milvus_client=milvus,
-        collection_name="law",
-        llm=llm,
-        text_embedder=embedding,
-        reranker=reranker
-    ))
-    assistant.available_tools.add_tool(GetWeather())
-    queue = await assistant.run_stream("今天杭州是否适合外出")
+    assistant.available_tools.add_tool(PlanningTool())
+    queue = await assistant.run_stream("创建一个合理的计划，具有清晰的步骤，以完成任务: 从杭州出发到重庆的十一假期旅游计划")
     
     while True:
         chunk = await queue.get()

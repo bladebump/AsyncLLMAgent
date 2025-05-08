@@ -111,9 +111,6 @@ class ToolCallAgent(ReActAgent):
         if not await self.memory.has_system() and self.system_prompt:
             await self.memory.add_system(Message.system_message(self.system_prompt))
 
-        if self.next_step_prompt:
-            await self.memory.add(Message.user_message(self.next_step_prompt))
-
         gen = await self.llm.chat(
             messages=self.memory.Messages,
             tools=self.available_tools.to_params(),

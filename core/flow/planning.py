@@ -43,43 +43,29 @@ class PlanStepStatus(str, Enum):
 class PlanningFlow(BaseFlow):
     """一个管理计划和任务执行的流程"""
 
-    llm: AsyncBaseChatCOTModel = Field(...)
-    planning_tool: PlanningTool = Field(default_factory=PlanningTool)
-    executor_keys: List[str] = Field(default_factory=list)
-    active_plan_id: str = Field(default_factory=lambda: f"plan_{int(time.time())}")
-    current_step_index: Optional[int] = None
+    def __init__(self, agents: BaseAgent | List[BaseAgent] | Dict[str, BaseAgent], 
+                llm: AsyncBaseChatCOTModel, 
+                tools: List | None = None, 
+                primary_agent_key: str | None = None, 
+                planning_tool: PlanningTool | None = None,
+                executor_keys: List[str] | None = None,
+                active_plan_id: str | None = None,
+                current_step_index: int | None = None):
+        super().__init__(agents, tools, primary_agent_key)
+        self.llm = llm
+        self.planning_tool = planning_tool or PlanningTool()
+        self.executor_keys = executor_keys or list(self.agents.keys())
+        self.active_plan_id = active_plan_id or f"plan_{int(time.time())}"
+        self.current_step_index = current_step_index
 
-    def __init__(
-        self, agents: Union[BaseAgent, List[BaseAgent], Dict[str, BaseAgent]], **data
-    ):
-        # 在 super().__init__ 之前设置执行器键
-        if "executors" in data:
-            data["executor_keys"] = data.pop("executors")
-
-        # 如果提供了计划ID，则设置它
-        if "plan_id" in data:
-            data["active_plan_id"] = data.pop("plan_id")
-
-        # 如果未提供计划工具，则初始化它
-        if "planning_tool" not in data:
-            planning_tool = PlanningTool()
-            data["planning_tool"] = planning_tool
-
-        # 使用处理后的数据调用父类的初始化
-        super().__init__(agents, **data)
-
-        # 如果未指定执行器键，则设置所有代理键
-        if not self.executor_keys:
-            self.executor_keys = list(self.agents.keys())
-
-    def get_executor(self, step_type: Optional[str] = None) -> BaseAgent:
+    def get_executor(self, agent_name: Optional[str] = None) -> BaseAgent:
         """
         获取适合当前步骤的执行代理。
         可以根据步骤类型/要求进行扩展。
         """
         # 如果提供了步骤类型并且与代理键匹配，则使用该代理
-        if step_type and step_type in self.agents:
-            return self.agents[step_type]
+        if agent_name and agent_name in self.agents:
+            return self.agents[agent_name]
 
         # 否则使用第一个可用的执行器或回退到主代理
         for key in self.executor_keys:
@@ -117,8 +103,8 @@ class PlanningFlow(BaseFlow):
                     break
 
                 # 使用适当的代理执行当前步骤
-                step_type = step_info.get("type") if step_info else None
-                executor = self.get_executor(step_type)
+                agent_name = step_info.get("agent_name") if step_info else None
+                executor = self.get_executor(agent_name)
                 step_result = await self._execute_step(executor, step_info)
                 result += step_result + "\n"
 
@@ -135,13 +121,13 @@ class PlanningFlow(BaseFlow):
         """使用流程的LLM和PlanningTool基于请求创建初始计划。"""
         logger.info(f"正在创建初始计划: {self.active_plan_id}")
 
+        agent_dict = {agent.name: agent.description for agent in self.agents.values()}
         # Create a system message for plan creation
         system_message = Message.system_message(
-            "你是一个计划助手。创建一个简洁、可操作的计划，具有清晰的步骤。 "
-            "专注于关键里程碑，而不是详细的子步骤。 "
-            "优化清晰度和效率。"
-        )
-
+            f"""你是一个计划助手。创建一个简洁、可操作的计划，具有清晰的步骤。 专注于关键里程碑，而不是详细的子步骤。 优化清晰度和效率。
+每个steps请配合一个合适的agent。
+当前有的agent有：{agent_dict}
+""")
         # 创建一个包含请求的用户消息
         user_message = Message.user_message(
             f"创建一个合理的计划，具有清晰的步骤，以完成任务: {request}"
@@ -216,16 +202,6 @@ class PlanningFlow(BaseFlow):
                     status = step_statuses[i]
 
                 if status in PlanStepStatus.get_active_statuses():
-                    # 如果可用，提取步骤类型/类别
-                    step_info = {"text": step}
-
-                    # 尝试从文本中提取步骤类型（例如，[SEARCH] 或 [CODE]）
-                    import re
-
-                    type_match = re.search(r"\[([A-Z_]+)\]", step)
-                    if type_match:
-                        step_info["type"] = type_match.group(1).lower()
-
                     # 将当前步骤标记为进行中
                     try:
                         await self.planning_tool.execute(
@@ -246,7 +222,7 @@ class PlanningFlow(BaseFlow):
 
                         plan_data["step_statuses"] = step_statuses
 
-                    return i, step_info
+                    return i, step
 
             return None, None  # 没有活动步骤
 
@@ -258,7 +234,7 @@ class PlanningFlow(BaseFlow):
         """使用指定的代理执行当前步骤，使用agent.run()。"""
         # 准备当前计划状态的上下文
         plan_status = await self._get_plan_text()
-        step_text = step_info.get("text", f"步骤 {self.current_step_index}")
+        step_text = step_info.get("step", f"步骤 {self.current_step_index}")
 
         # 为代理创建一个执行当前步骤的提示
         step_prompt = f"""
