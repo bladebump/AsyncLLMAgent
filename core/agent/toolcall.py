@@ -2,7 +2,7 @@ import json
 from typing import Any, List, Optional, Union
 from core.agent.react import ReActAgent
 from utils.log import logger
-from core.schema import AgentState, Message, ToolCall, ToolChoice
+from core.schema import AgentState, Message, ToolCall, ToolChoice, AgentResultStream
 from core.tools import Terminate, ToolCollection
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
@@ -62,8 +62,9 @@ class ToolCallAgent(ReActAgent):
         self._current_base64_image = None
         self.max_observe = max_observe
 
-    async def think(self) -> str:
+    async def think(self) -> tuple[str, str]:
         """处理当前状态并决定下一步操作使用工具"""
+        self.tool_calls = []
         if not await self.memory.has_system() and self.system_prompt:
             await self.memory.add_system(Message.system_message(self.system_prompt))
 
@@ -94,29 +95,18 @@ class ToolCallAgent(ReActAgent):
             else Message.assistant_message(content)
         )
         await self.memory.add(assistant_msg)
-        return content
+        return thinking, content, bool(tool_calls)
 
     async def act(self) -> str:
         """执行工具调用并处理其结果"""
-        if not self.tool_calls:
-            # 如果没有任何命令，返回最后一条消息的内容
-            messages = await self.memory.get_last_n_messages(1)
-            return messages[0].content or "没有内容或命令要执行"
-
         results = []
         for command in self.tool_calls:
             # 为每个工具调用重置base64_image
             self._current_base64_image = None
-
             result = await self.execute_tool(command)
-
             if self.max_observe:
                 result = result[: self.max_observe]
-
-            logger.info(
-                f"🎯 工具 '{command.function.name}' 完成任务！结果: {result}"
-            )
-
+            logger.info(f"🎯 工具 '{command.function.name}' 完成任务！结果: {result}")
             # 将工具响应添加到记忆中
             tool_msg = Message.tool_message(
                 content=result,
@@ -128,6 +118,58 @@ class ToolCallAgent(ReActAgent):
             results.append(result)
 
         return "\n\n".join(results)
+
+    async def think_stream(self):
+        """流式返回的think"""
+        self.tool_calls = []
+        if not await self.memory.has_system() and self.system_prompt:
+            await self.memory.add_system(Message.system_message(self.system_prompt))
+
+        if self.next_step_prompt:
+            await self.memory.add(Message.user_message(self.next_step_prompt))
+
+        gen = await self.llm.chat(
+            messages=self.memory.Messages,
+            tools=self.available_tools.to_params(),
+            tool_choice=self.tool_choices,
+            stream=True,
+        )
+        all_thinking = ""
+        all_content = ""
+        async for think, content, tool_calls in gen:
+            if tool_calls:
+                self.tool_calls = tool_calls
+                logger.info(f"🧰 正在准备工具: {[call.function.name for call in tool_calls]}")
+                logger.info(f"🔧 工具参数: {[call.function.arguments for call in tool_calls]}")
+            all_thinking += think
+            all_content += content
+            yield AgentResultStream(thinking=all_thinking, content=all_content, tool_calls=tool_calls)
+        
+        assistant_msg = (
+            Message.from_tool_calls(content=all_content, tool_calls=tool_calls)
+            if tool_calls
+            else Message.assistant_message(all_content)
+        )
+        await self.memory.add(assistant_msg)
+
+    async def act_stream(self):
+        """流式返回的act"""
+        for command in self.tool_calls:
+            # 为每个工具调用重置base64_image
+            self._current_base64_image = None
+            result = await self.execute_tool(command)
+            if self.max_observe:
+                result = result[: self.max_observe]
+            logger.info(f"🎯 工具 '{command.function.name}' 完成任务！结果: {result}")
+            # 将工具响应添加到记忆中
+            tool_msg = Message.tool_message(
+                content=result,
+                tool_call_id=command.id,
+                name=command.function.name,
+                base64_image=self._current_base64_image,
+            )
+            await self.memory.add(tool_msg)
+            yield AgentResultStream(thinking="", content=result, tool_calls=[])
 
     async def execute_tool(self, command: ToolCall) -> str:
         """执行单个工具调用，具有健壮的错误处理"""

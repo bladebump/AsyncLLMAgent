@@ -94,7 +94,7 @@ class BaseAgent(ABC):
             if self.current_step >= self.max_steps:
                 self.current_step = 0
                 self.state = AgentState.IDLE
-                results.append(AgentResult(reason="", result="终止: 达到最大步骤"))
+                results.append(AgentResult(thinking="", content="终止: 达到最大步骤"))
         return results
     
     async def run_stream(self, request: Optional[str] = None) -> asyncio.Queue:
@@ -114,7 +114,7 @@ class BaseAgent(ABC):
         
         return result_queue
 
-    async def _run_and_fill_queue(self, queue: asyncio.Queue) -> None:
+    async def _run_and_fill_queue(self, queue: asyncio.Queue):
         """内部方法，执行步骤并将结果放入队列。"""
         async with self.state_context(AgentState.RUNNING):
             while (

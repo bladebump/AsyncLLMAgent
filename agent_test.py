@@ -4,13 +4,12 @@ from core.config import config
 from core.llms.qwen_llm import QwenCoT
 from core.tools import GetWeather, RAGTool, MCPClients, Terminate
 from core.mem import ListMemory
-from core.schema import AgentDone
+from core.schema import AgentDone, QueueEnd
 from core.embeddings.silicon_agent import SiliconEmbeddingAgent
 from core.vector.milvus import MilvusVectorStore
 from core.ranks import SiliconRankAgent
 
 async def main():
-    llm_provider = config.current_provider
     llm_config = config.llm_providers["qwen"]
     llm = QwenCoT(
         api_base=llm_config.api_base,
@@ -55,17 +54,18 @@ async def main():
     
     while True:
         chunk = await queue.get()
-        all_thinking = ""
-        all_result = ""
         if isinstance(chunk, AgentDone):
             break
-        elif isinstance(chunk, str):
-            print(chunk)
-        else:
-            async for think, resp in chunk:
-                all_thinking += think
-                all_result += resp
-                print(all_thinking, all_result)
-    
+        if isinstance(chunk, asyncio.Queue):
+            while True:
+                result = await chunk.get()
+                if isinstance(result, QueueEnd):
+                    break
+                if result.thinking:
+                    print(result.thinking)
+                if result.content:
+                    print(result.content)
+                if result.tool_calls:
+                    print(result.tool_calls)
 if __name__ == "__main__":
     asyncio.run(main())

@@ -2,7 +2,7 @@ from typing import List, Optional, Union, Any, Tuple, AsyncIterator
 import asyncio
 from core.agent.toolcall import ToolCallAgent
 from core.tools import ToolCollection
-from core.schema import AgentState, Message, AgentDone, ToolChoice, AgentResult
+from core.schema import AgentState, Message, AgentDone, ToolChoice, AgentResult, QueueEnd, AgentResultStream
 from utils.log import logger
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
@@ -89,7 +89,7 @@ class SummaryToolCallAgent(ToolCallAgent):
             # 创建总结提示
             summary_prompt = Message.user_message(SUMMARIZE_PROMPT.format(request=self.request))
             # 获取完整对话历史
-            self.memory.add(summary_prompt)
+            await self.memory.add(summary_prompt)
             # 使用LLM生成总结
             logger.info("生成对话总结...")
             response = await self.llm.chat(messages=self.memory.Messages, stream=stream)
@@ -101,8 +101,8 @@ class SummaryToolCallAgent(ToolCallAgent):
     async def run(self, request: Optional[str] = None) -> list[AgentResult]:
         """重写run方法以返回summary结果"""
         results = await super().run(request)
-        thinking, content, _ = await self._generate_summary()
-        results.append(AgentResult(reason=thinking, result=content))
+        thinking, content, _ = await self._generate_summary(stream=False)
+        results.append(AgentResult(thinking=thinking, content=content))
         return results
     
     async def _run_and_fill_queue(self, queue: asyncio.Queue):
@@ -113,20 +113,26 @@ class SummaryToolCallAgent(ToolCallAgent):
             ):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{self.max_steps}")
-                step_result = await self.step()
+                await self.step_stream(queue)
 
                 # Check for stuck state
                 if await self.is_stuck():
                     await self.handle_stuck_state()
-
-                await queue.put(f"Step {self.current_step}: {step_result}")
 
             if self.current_step >= self.max_steps:
                 self.current_step = 0
                 self.state = AgentState.IDLE
                 await queue.put(f"终止: 达到最大步骤 ({self.max_steps})")
             
+            all_thinking = ""
+            all_content = ""
+            summary_queue = asyncio.Queue()
             summary = await self._generate_summary(stream=True)
-            await queue.put(summary)
+            await queue.put(summary_queue)
+            async for thinking, content, tool_calls in summary:
+                all_thinking += thinking
+                all_content += content
+                await summary_queue.put(AgentResultStream(thinking=all_thinking, content=all_content, tool_calls=tool_calls))
+            await summary_queue.put(QueueEnd())
             # 标记队列已完成
             await queue.put(AgentDone(reason="执行完成"))
