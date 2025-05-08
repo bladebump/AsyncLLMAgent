@@ -4,7 +4,7 @@ from .base import AsyncMemory
 
 class ListMemory(AsyncMemory):
     async def add(self, message: Message):
-        if len(self.Messages) < self.max_length:
+        if len(self.Messages) < self.max_turn:
             self.Messages.append(message)
         else:
             if self.Messages[0].role != Role.SYSTEM:

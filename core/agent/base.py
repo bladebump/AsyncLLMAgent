@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import List, Optional, AsyncIterator
+from typing import List, Optional
 import asyncio
 from utils.log import logger
 from core.llms.base import AsyncBaseChatCOTModel
@@ -20,7 +20,6 @@ class BaseAgent(ABC):
         memory: AsyncMemory,
         description: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        next_step_prompt: Optional[str] = None,
         state: AgentState = AgentState.IDLE,
         max_steps: int = 10,
         current_step: int = 0,
@@ -33,7 +32,6 @@ class BaseAgent(ABC):
 
         # 提示
         self.system_prompt = system_prompt
-        self.next_step_prompt = next_step_prompt
 
         # 依赖
         self.llm = llm

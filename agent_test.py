@@ -29,7 +29,7 @@ async def main():
         dense_vector_dim=config.milvus.dense_vector_dim,
             use_sparse_vector=config.milvus.use_sparse_vector
         )
-    assistant = SummaryToolCallAgent(
+    assistant = ToolCallAgent(
         name="法律助手",
         description="一个可以查询法律的助手",
         llm=llm,
@@ -50,7 +50,8 @@ async def main():
         text_embedder=embedding,
         reranker=reranker
     ))
-    queue = await assistant.run_stream("你有哪些函数可用")
+    assistant.available_tools.add_tool(GetWeather())
+    queue = await assistant.run_stream("今天杭州是否适合外出")
     
     while True:
         chunk = await queue.get()
@@ -62,10 +63,10 @@ async def main():
                 if isinstance(result, QueueEnd):
                     break
                 if result.thinking:
-                    print(result.thinking)
+                    print("thinking:", result.thinking)
                 if result.content:
-                    print(result.content)
+                    print("content:", result.content)
                 if result.tool_calls:
-                    print(result.tool_calls)
+                    print("tool_calls:", result.tool_calls)
 if __name__ == "__main__":
     asyncio.run(main())

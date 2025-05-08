@@ -3,16 +3,11 @@ from typing import Any, List, Optional, Union
 from core.agent.react import ReActAgent
 from utils.log import logger
 from core.schema import AgentState, Message, ToolCall, ToolChoice, AgentResultStream
-from core.tools import Terminate, ToolCollection
+from core.tools import ToolCollection
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
 
-TOOL_CALL_REQUIRED = "需要工具调用但未提供"
 SYSTEM_PROMPT = "你是一个可以执行工具调用的代理, 请根据用户的需求选择合适的工具, 并使用工具调用执行任务。你可以反复使用工具调用直到任务完成。"
-NEXT_STEP_PROMPT = (
-    "如果你想停止交互，请使用`terminate`工具/函数调用。"
-)
-
 
 class ToolCallAgent(ReActAgent):
     """用于处理工具/函数调用的基础代理类"""
@@ -24,11 +19,9 @@ class ToolCallAgent(ReActAgent):
         memory: AsyncMemory = None,
         description: str = "一个可以执行工具调用的代理。",
         system_prompt: str = SYSTEM_PROMPT,
-        next_step_prompt: str = NEXT_STEP_PROMPT,
         state: AgentState = AgentState.IDLE,
         available_tools: Optional[ToolCollection] = None,
         tool_choices: str = ToolChoice.AUTO,
-        special_tool_names: Optional[List[str]] = None,
         max_steps: int = 30,
         max_observe: Optional[Union[int, bool]] = None,
         **kwargs
@@ -39,7 +32,6 @@ class ToolCallAgent(ReActAgent):
             memory=memory,
             description=description,
             system_prompt=system_prompt,
-            next_step_prompt=next_step_prompt,
             state=state,
             max_steps=max_steps,
             **kwargs
@@ -47,16 +39,10 @@ class ToolCallAgent(ReActAgent):
         
         # 初始化默认工具集合
         if available_tools is None:
-            self.available_tools = ToolCollection(Terminate())
+            self.available_tools = ToolCollection()
         else:
             self.available_tools = available_tools
         self.tool_choices = tool_choices
-        
-        # 初始化特殊工具名称
-        if special_tool_names is None:
-            self.special_tool_names = [Terminate().name]
-        else:
-            self.special_tool_names = special_tool_names
             
         self.tool_calls = []
         self._current_base64_image = None
@@ -144,7 +130,10 @@ class ToolCallAgent(ReActAgent):
             all_thinking += think
             all_content += content
             yield AgentResultStream(thinking=all_thinking, content=all_content, tool_calls=tool_calls)
-        
+
+        if not tool_calls:
+            self.state = AgentState.FINISHED
+
         assistant_msg = (
             Message.from_tool_calls(content=all_content, tool_calls=tool_calls)
             if tool_calls
@@ -188,9 +177,6 @@ class ToolCallAgent(ReActAgent):
             logger.info(f"🔧 激活工具: '{name}'...")
             result = await self.available_tools.execute(name=name, tool_input=args)
 
-            # 处理特殊工具
-            await self._handle_special_tool(name=name, result=result)
-
             # 检查result是否是包含base64_image的ToolResult
             if hasattr(result, "base64_image") and result.base64_image:
                 # 存储base64_image以供稍后在tool_message中使用
@@ -213,22 +199,3 @@ class ToolCallAgent(ReActAgent):
             error_msg = f"⚠️ 工具 '{name}' 遇到问题: {str(e)}"
             logger.exception(error_msg)
             return f"错误: {error_msg}"
-
-    async def _handle_special_tool(self, name: str, result: Any, **kwargs):
-        """处理特殊工具执行和状态变化"""
-        if not self._is_special_tool(name):
-            return
-
-        if self._should_finish_execution(name=name, result=result, **kwargs):
-            # 设置代理状态为完成
-            logger.info(f"🏁 特殊工具 '{name}' 已完成任务!")
-            self.state = AgentState.FINISHED
-
-    @staticmethod
-    def _should_finish_execution(**kwargs) -> bool:
-        """确定是否应该完成工具执行"""
-        return True
-
-    def _is_special_tool(self, name: str) -> bool:
-        """检查工具名称是否在特殊工具列表中"""
-        return name.lower() in [n.lower() for n in self.special_tool_names]
