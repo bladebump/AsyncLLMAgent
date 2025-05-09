@@ -134,7 +134,7 @@ class PlanningFlow(BaseFlow):
         )
 
         # 使用PlanningTool调用LLM
-        response = await self.llm.chat(
+        thinking, content, tool_calls = await self.llm.chat(
             messages=[system_message, user_message],
             tools=[self.planning_tool.to_param()],
             tool_choice=ToolChoice.AUTO,
@@ -142,8 +142,8 @@ class PlanningFlow(BaseFlow):
         )
 
         # 如果存在工具调用，则处理它们
-        if response.tool_calls:
-            for tool_call in response.tool_calls:
+        if tool_calls:
+            for tool_call in tool_calls:
                 if tool_call.function.name == "planning":
                     # 解析参数
                     args = tool_call.function.arguments

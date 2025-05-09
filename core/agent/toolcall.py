@@ -54,9 +54,6 @@ class ToolCallAgent(ReActAgent):
         if not await self.memory.has_system() and self.system_prompt:
             await self.memory.add_system(Message.system_message(self.system_prompt))
 
-        if self.next_step_prompt:
-            await self.memory.add(Message.user_message(self.next_step_prompt))
-
         thinking, content, tool_calls = await self.llm.chat(
             messages=self.memory.Messages,
             tools=self.available_tools.to_params(),
@@ -74,6 +71,9 @@ class ToolCallAgent(ReActAgent):
                 f"🧰 正在准备工具: {[call.function.name for call in tool_calls]}"
             )
             logger.info(f"🔧 工具参数: {[call.function.arguments for call in tool_calls]}")
+            
+        if not tool_calls:
+            self.state = AgentState.FINISHED
 
         assistant_msg = (
             Message.from_tool_calls(content=content, tool_calls=self.tool_calls)

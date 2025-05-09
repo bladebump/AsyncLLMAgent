@@ -18,7 +18,7 @@ class BaseFlow(ABC):
         self.agents = agents_dict
         self.tools = tools
         if primary_agent_key is None:
-            self.primary_agent_key = agents_dict[0].name
+            self.primary_agent_key = list(agents_dict.keys())[0]
         else:
             self.primary_agent_key = primary_agent_key
 
