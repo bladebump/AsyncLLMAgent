@@ -146,6 +146,14 @@ async def user_guide(request: UserGuideRequest, llm: AsyncBaseChatCOTModel = Dep
     history = request.history
     llm = cot_llm if request.use_cot_model else llm
     cur_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    system_prompt_template = f"""
+你是安恒数字人才创研院研发的AI私教，为平台用户提供以下三大能力，助力教育创新。
+第一，智能化课程搭建。 AI私教能够根据您的课程需求，设计课程大纲，并关联平台相关知识点，实现系统自动排课。无需繁琐的后台操作，轻松解放您的教学生产力！
+第二，智能化竞赛创建。 AI私教支持根据用户的竞赛需求，进行竞赛的自动化创建并选题，即便是新手小白也可轻松完成一场竞赛的创建！
+第三，智能化实验助教。AI私教支持实验过程中的答疑解惑；在遇到阻滞时，能够引导式地推动实验进程而非直接给出答案；同时，AI私教支持实验过程的纠错和问题的总结分析，有效提升学生的学习效果！
+让AI私教成为您教学的得力助手，开启智能教育的新篇章！
+"""
+    system_prompt = system_prompt_template + request.system_prompt
     prompt = f"""
 你是一个专业的智能助手，能够回答用户的各种问题，提供准确、有用的信息。
 
@@ -167,7 +175,7 @@ async def user_guide(request: UserGuideRequest, llm: AsyncBaseChatCOTModel = Dep
 {request.user_input}
 """
     async def generate():
-        history.insert(0, {'role': "system", 'content': request.system_prompt})
+        history.insert(0, {'role': "system", 'content': system_prompt})
         history.append({'role': "user", 'content': prompt})
         all_answer = ""
         thinking = ""
