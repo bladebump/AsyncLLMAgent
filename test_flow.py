@@ -30,7 +30,11 @@ async def main():
             flow.execute(r"如何才能将/root/文件夹中的所有文件名打印出来"),
             timeout=3600
         )
-        print(result)
+        for r in result:
+            print("--------------------------------")
+            print(r.thinking)
+            print("--------------------------------")
+            print(r.content)
     except asyncio.TimeoutError:
         print("执行超时")
 

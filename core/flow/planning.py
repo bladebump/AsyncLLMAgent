@@ -7,7 +7,7 @@ from core.agent.base import BaseAgent
 from core.flow.base import BaseFlow
 from core.llms import AsyncBaseChatCOTModel
 from utils.log import logger
-from core.schema import AgentState, Message, ToolChoice
+from core.schema import AgentState, Message, ToolChoice, AgentResult
 from core.tools import PlanningTool
 
 
@@ -75,7 +75,7 @@ class PlanningFlow(BaseFlow):
         # 回退到主代理
         return self.primary_agent
 
-    async def execute(self, input_text: str) -> str:
+    async def execute(self, input_text: str) -> list[AgentResult]:
         """执行计划流程"""
         try:
             if not self.primary_agent:
@@ -92,21 +92,21 @@ class PlanningFlow(BaseFlow):
                     )
                     return f"计划创建失败: {input_text}"
 
-            result = ""
+            result = []
             while True:
                 # 获取当前要执行的步骤
                 self.current_step_index, step_info = await self._get_current_step_info()
 
                 # 如果没有任何步骤或计划完成，则退出
                 if self.current_step_index is None:
-                    result += await self._finalize_plan()
+                    result.append(await self._finalize_plan())
                     break
 
                 # 使用适当的代理执行当前步骤
                 agent_name = step_info.get("agent_name") if step_info else None
                 executor = self.get_executor(agent_name)
                 step_result = await self._execute_step(executor, step_info)
-                result += step_result + "\n"
+                result.extend(step_result)
 
                 # 检查代理是否想要终止
                 if hasattr(executor, "state") and executor.state == AgentState.FINISHED:
@@ -244,7 +244,7 @@ class PlanningFlow(BaseFlow):
         你的当前任务:
         你现在正在执行步骤 {self.current_step_index}: "{step_text}"
 
-        请使用适当的工具执行此步骤。完成后，提供你完成的总结。
+        请使用适当的工具执行此步骤。请注意你只需要完成当前步骤即可，不需要完成整个计划。完成后，提供你完成的总结。
         """
 
         # 使用agent.run()执行步骤
@@ -359,7 +359,7 @@ class PlanningFlow(BaseFlow):
             logger.error(f"从存储生成计划文本时出错: {e}")
             return f"Error: 无法检索 ID {self.active_plan_id} 的计划"
 
-    async def _finalize_plan(self) -> str:
+    async def _finalize_plan(self) -> AgentResult:
         """完成计划并使用流程的LLM直接提供摘要。"""
         plan_text = await self._get_plan_text()
 
@@ -378,7 +378,7 @@ class PlanningFlow(BaseFlow):
                 stream=False,
             )
 
-            return f"计划已完成:\n\n{response}"
+            return AgentResult(thinking=thinking, content="计划已完成:\n\n" + response)
         except Exception as e:
             logger.error(f"使用LLM总结计划时出错: {e}")
 

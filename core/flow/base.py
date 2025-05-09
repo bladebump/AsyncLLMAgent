@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 from core.agent import BaseAgent
-
+from core.schema import AgentResult
 class BaseFlow(ABC):
     """支持多个代理的执行流程基类"""
 
@@ -36,5 +36,5 @@ class BaseFlow(ABC):
         self.agents[key] = agent
 
     @abstractmethod
-    async def execute(self, input_text: str) -> str:
+    async def execute(self, input_text: str) -> list[AgentResult]:
         """执行流程"""
