@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 from core.agent import BaseAgent
-from core.schema import AgentResult
+from core.schema import AgentResult, AgentResultStream
+import asyncio
 class BaseFlow(ABC):
     """支持多个代理的执行流程基类"""
 
@@ -36,5 +37,5 @@ class BaseFlow(ABC):
         self.agents[key] = agent
 
     @abstractmethod
-    async def execute(self, input_text: str) -> list[AgentResult]:
-        """执行流程"""
+    async def execute(self, input_text: str) -> asyncio.Queue:
+        """执行流程，以流式方式返回结果"""

@@ -1,5 +1,6 @@
 import json
 import time
+import asyncio
 from enum import Enum
 from typing import Dict, List, Optional, Union
 from pydantic import Field
@@ -7,7 +8,7 @@ from core.agent.base import BaseAgent
 from core.flow.base import BaseFlow
 from core.llms import AsyncBaseChatCOTModel
 from utils.log import logger
-from core.schema import AgentState, Message, ToolChoice, AgentResult
+from core.schema import AgentState, Message, ToolChoice, AgentResult, AgentResultStream, AgentDone, QueueEnd
 from core.tools import PlanningTool
 
 
@@ -75,49 +76,70 @@ class PlanningFlow(BaseFlow):
         # 回退到主代理
         return self.primary_agent
 
-    async def execute(self, input_text: str) -> list[AgentResult]:
-        """执行计划流程"""
+    async def execute(self, input_text: str) -> asyncio.Queue:
+        """执行计划流程，以流式方式返回结果"""
+        result_queue = asyncio.Queue()
+        
         try:
             if not self.primary_agent:
                 raise ValueError("没有可用的主代理")
 
-            # 如果提供了输入，则创建初始计划
-            if input_text:
-                await self._create_initial_plan(input_text)
-
-            # 确认计划是否成功创建
-                if self.active_plan_id not in self.planning_tool.plans:
-                    logger.error(
-                        f"计划创建失败. 计划 ID {self.active_plan_id} 未在计划工具中找到."
-                    )
-                    return f"计划创建失败: {input_text}"
-
-            result = []
-            while True:
-                # 获取当前要执行的步骤
-                self.current_step_index, step_info = await self._get_current_step_info()
-
-                # 如果没有任何步骤或计划完成，则退出
-                if self.current_step_index is None:
-                    result.append(await self._finalize_plan())
-                    break
-
-                # 使用适当的代理执行当前步骤
-                agent_name = step_info.get("agent_name") if step_info else None
-                executor = self.get_executor(agent_name)
-                step_result = await self._execute_step(executor, step_info)
-                result.extend(step_result)
-
-                # 检查代理是否想要终止
-                if hasattr(executor, "state") and executor.state == AgentState.FINISHED:
-                    break
-
-            return result
+            # 启动一个独立的任务来执行流程并填充队列
+            asyncio.create_task(self._execute_flow(input_text, result_queue))
+            
+            return result_queue
         except Exception as e:
             logger.error(f"PlanningFlow 错误: {str(e)}")
-            return f"执行失败: {str(e)}"
+            error_queue = asyncio.Queue()
+            error_stream = AgentResultStream(thinking="", content=f"执行失败: {str(e)}", tool_calls=[])
+            await error_queue.put(error_stream)
+            await error_queue.put(QueueEnd())
+            await result_queue.put(error_queue)
+            return result_queue
 
-    async def _create_initial_plan(self, request: str) -> None:
+    async def _execute_flow(self, input_text: str, result_queue: asyncio.Queue):
+        """具体执行流程的内部方法"""
+            # 如果提供了输入，则创建初始计划
+        if input_text:
+            create_plan_queue = asyncio.Queue()
+            await result_queue.put(create_plan_queue)
+            create_plan_queue = await self._create_initial_plan(input_text, create_plan_queue)
+                
+            # 确认计划是否成功创建
+            if self.active_plan_id not in self.planning_tool.plans:
+                logger.error(
+                    f"计划创建失败. 计划 ID {self.active_plan_id} 未在计划工具中找到."
+                )
+                await create_plan_queue.put(AgentResultStream(
+                    thinking="", 
+                    content=f"计划创建失败: {input_text}", 
+                    tool_calls=[]
+                ))
+                await create_plan_queue.put(QueueEnd())
+                await result_queue.put(AgentDone())
+                return
+
+        while True:
+            # 获取当前要执行的步骤
+            self.current_step_index, step_info = await self._get_current_step_info()
+
+            # 如果没有任何步骤或计划完成，则退出
+            if self.current_step_index is None:
+                await self._finalize_plan(result_queue)
+                break
+
+            # 使用适当的代理执行当前步骤
+            agent_name = step_info.get("agent_name") if step_info else None
+            executor = self.get_executor(agent_name)
+            await self._execute_step(executor, step_info, result_queue)
+
+            # 检查代理是否想要终止
+            if hasattr(executor, "state") and executor.state == AgentState.FINISHED:
+                break
+
+        await result_queue.put(AgentDone())
+
+    async def _create_initial_plan(self, request: str, result_queue: asyncio.Queue) -> asyncio.Queue:
         """使用流程的LLM和PlanningTool基于请求创建初始计划。"""
         logger.info(f"正在创建初始计划: {self.active_plan_id}")
 
@@ -133,13 +155,31 @@ class PlanningFlow(BaseFlow):
             f"创建一个合理的计划，具有清晰的步骤，以完成任务: {request}"
         )
 
-        # 使用PlanningTool调用LLM
-        thinking, content, tool_calls = await self.llm.chat(
+        # 使用PlanningTool调用LLM (流式)
+        gen = await self.llm.chat(
             messages=[system_message, user_message],
             tools=[self.planning_tool.to_param()],
             tool_choice=ToolChoice.AUTO,
-            stream=False,
+            stream=True,
         )
+
+        all_thinking = ""
+        all_content = ""
+        tool_calls = []
+        
+        # 处理流式响应
+        async for thinking, content, calls in gen:
+            all_thinking += thinking
+            all_content += content
+            if calls:
+                tool_calls = calls
+            
+            # 将中间结果发送到队列
+            await result_queue.put(AgentResultStream(
+                thinking=all_thinking,
+                content=all_content,
+                tool_calls=tool_calls
+            ))
 
         # 如果存在工具调用，则处理它们
         if tool_calls:
@@ -157,17 +197,25 @@ class PlanningFlow(BaseFlow):
                     # 确保plan_id正确设置并执行工具
                     args["plan_id"] = self.active_plan_id
 
-                    # 通过ToolCollection而不是直接执行工具
+                    # 执行工具并获取结果
                     result = await self.planning_tool.execute(**args)
-
+                    
+                    # 将工具执行结果发送到队列
+                    await result_queue.put(AgentResultStream(
+                        thinking="",
+                        content=str(result),
+                        tool_calls=[]
+                    ))
+                    
                     logger.info(f"计划创建结果: {str(result)}")
-                    return
+                    await result_queue.put(QueueEnd())
+                    return result_queue
 
         # 如果执行到达这里，则创建一个默认计划
         logger.warning("正在创建默认计划")
 
-        # Create default plan using the ToolCollection
-        await self.planning_tool.execute(
+        # Create default plan
+        default_result = await self.planning_tool.execute(
             **{
                 "command": "create",
                 "plan_id": self.active_plan_id,
@@ -175,6 +223,16 @@ class PlanningFlow(BaseFlow):
                 "steps": ["Analyze request", "Execute task", "Verify results"],
             }
         )
+        
+        # 将默认计划结果发送到队列
+        await result_queue.put(AgentResultStream(
+            thinking="",
+            content=str(default_result),
+            tool_calls=[]
+        ))
+        
+        await result_queue.put(QueueEnd())
+        return result_queue
 
     async def _get_current_step_info(self) -> tuple[Optional[int], Optional[dict]]:
         """
@@ -230,8 +288,8 @@ class PlanningFlow(BaseFlow):
             logger.warning(f"查找当前步骤索引时出错: {e}")
             return None, None
 
-    async def _execute_step(self, executor: BaseAgent, step_info: dict) -> str:
-        """使用指定的代理执行当前步骤，使用agent.run()。"""
+    async def _execute_step(self, executor: BaseAgent, step_info: dict, queue: asyncio.Queue):
+        """使用指定的代理执行当前步骤，使用agent.run_stream()。"""
         # 准备当前计划状态的上下文
         plan_status = await self._get_plan_text()
         step_text = step_info.get("step", f"步骤 {self.current_step_index}")
@@ -246,18 +304,42 @@ class PlanningFlow(BaseFlow):
 
         请使用适当的工具执行此步骤。请注意你只需要完成当前步骤即可，不需要完成整个计划。完成后，提供你完成的总结。
         """
+        step_queue = asyncio.Queue()
+        await queue.put(step_queue)
 
-        # 使用agent.run()执行步骤
+        # 使用agent.run_stream()执行步骤
         try:
-            step_result = await executor.run(step_prompt)
-
-            # 在成功执行后标记步骤为已完成
-            await self._mark_step_completed()
-
-            return step_result
+            step_result_queue = await executor.run_stream(step_prompt)
+            await self._step_result_to_one_step_queue(step_queue, step_result_queue)
+            return
         except Exception as e:
             logger.error(f"执行步骤 {self.current_step_index} 时出错: {e}")
-            return f"执行步骤 {self.current_step_index} 时出错: {str(e)}"
+            error_queue = asyncio.Queue()
+            await error_queue.put(AgentResultStream(
+                thinking="",
+                content=f"执行步骤 {self.current_step_index} 时出错: {str(e)}",
+                tool_calls=[]
+            ))
+            await error_queue.put(QueueEnd())
+            return error_queue
+
+    async def _step_result_to_one_step_queue(self, step_queue: asyncio.Queue, step_result_queue: asyncio.Queue):
+        """等待步骤执行完成后标记为已完成"""
+        # 等待队列中的所有项目
+        while True:
+            item = await step_result_queue.get()
+            if isinstance(item, AgentDone):
+                break
+            if isinstance(item, asyncio.Queue):
+                while True:
+                    result = await item.get()
+                    if isinstance(result, QueueEnd):
+                        break
+                    await step_queue.put(result)
+        await step_queue.put(QueueEnd())
+
+        # 标记步骤为已完成
+        await self._mark_step_completed()
 
     async def _mark_step_completed(self) -> None:
         """标记当前步骤为已完成。"""
@@ -359,9 +441,11 @@ class PlanningFlow(BaseFlow):
             logger.error(f"从存储生成计划文本时出错: {e}")
             return f"Error: 无法检索 ID {self.active_plan_id} 的计划"
 
-    async def _finalize_plan(self) -> AgentResult:
-        """完成计划并使用流程的LLM直接提供摘要。"""
+    async def _finalize_plan(self, total_queue: asyncio.Queue):
+        """完成计划并使用流程的LLM直接提供摘要，以流式方式返回。"""
         plan_text = await self._get_plan_text()
+        result_queue = asyncio.Queue()
+        await total_queue.put(result_queue)
 
         # 使用流程的LLM直接创建总结
         try:
@@ -373,27 +457,34 @@ class PlanningFlow(BaseFlow):
                 f"计划已完成。以下是最终计划状态:\n\n{plan_text}\n\n请提供已完成的内容总结和任何最终想法。"
             )
 
-            thinking, response, _ = await self.llm.chat(
+            # 使用流式方式获取LLM响应
+            gen = await self.llm.chat(
                 messages=[system_message, user_message],
-                stream=False,
+                stream=True,
             )
 
-            return AgentResult(thinking=thinking, content="计划已完成:\n\n" + response)
+            all_thinking = ""
+            all_content = ""
+            
+            async for thinking, content, _ in gen:
+                all_thinking += thinking
+                all_content += content
+                
+                await result_queue.put(AgentResultStream(
+                    thinking=all_thinking,
+                    content="计划已完成:\n\n" + all_content,
+                    tool_calls=[]
+                ))
+
+            await result_queue.put(QueueEnd())
+            return
+            
         except Exception as e:
-            logger.error(f"使用LLM总结计划时出错: {e}")
-
-            # 回退到使用代理进行总结
-            try:
-                agent = self.primary_agent
-                summary_prompt = f"""
-                计划已完成。以下是最终计划状态:
-
-                {plan_text}
-
-                请提供已完成的内容总结和任何最终想法。
-                """
-                summary = await agent.run(summary_prompt)
-                return f"计划已完成:\n\n{summary}"
-            except Exception as e2:
-                logger.error(f"使用代理总结计划时出错: {e2}")
-                return "计划已完成。生成总结时出错。"
+            logger.error(f"使用代理总结计划时出错: {e}")
+            await result_queue.put(AgentResultStream(
+                thinking="",
+                content=f"计划已完成。生成总结时出错。\n{e}",
+                tool_calls=[]
+            ))
+            await result_queue.put(QueueEnd())
+            return

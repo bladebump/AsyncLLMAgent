@@ -4,7 +4,8 @@ from core.config import config
 from core.flow import PlanningFlow
 from core.agent import ToolCallAgent
 from core.mem import ListMemory
-from core.tools import Bash
+from core.tools import Bash,GetWeather
+from core.schema import AgentResultStream, AgentDone, QueueEnd
 
 async def main():
     llm_config = config.llm_providers["qwen"]
@@ -15,26 +16,36 @@ async def main():
         enable_thinking=True
     )
     agent = ToolCallAgent(
-        name="命令行执行专家",
-        description="一个擅长执行命令行任务的专家,当前系统是linux系统",
+        name="旅游规划师",
+        description="一个擅长规划旅游路线的专家",
         llm=llm,
         memory=ListMemory(),
     )
-    agent.available_tools.add_tool(Bash())
+    agent.available_tools.add_tool(GetWeather())
     flow = PlanningFlow(
         llm=llm,
         agents=[agent]
     )
     try:
-        result = await asyncio.wait_for(
-            flow.execute(r"如何才能将/root/文件夹中的所有文件名打印出来"),
+        queue = await asyncio.wait_for(
+            flow.execute(r"规划杭州去北京旅游的路线"),
             timeout=3600
         )
-        for r in result:
-            print("--------------------------------")
-            print(r.thinking)
-            print("--------------------------------")
-            print(r.content)
+        while True:
+            chunk = await queue.get()
+            if isinstance(chunk, AgentDone):
+                break
+            if isinstance(chunk, asyncio.Queue):
+                while True:
+                    result = await chunk.get()
+                    if isinstance(result, QueueEnd):
+                        break
+                    if result.thinking:
+                        print("thinking:", result.thinking)
+                    if result.content:
+                        print("content:", result.content)
+                    if result.tool_calls:
+                        print("tool_calls:", result.tool_calls)
     except asyncio.TimeoutError:
         print("执行超时")
 
