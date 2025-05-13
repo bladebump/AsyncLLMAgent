@@ -4,8 +4,8 @@ from core.schema import Message, ToolChoice
 from utils.log import logger
 
 class QwenCoT(OpenAICoT):
-    def __init__(self, api_base: str, api_key: str, model: str, enable_thinking: bool = False, support_fn_call: bool | None = None, max_length: int = 8192):
-        super().__init__(api_base, api_key, model, support_fn_call, max_length)
+    def __init__(self, api_base: str, api_key: str, model: str, enable_thinking: bool = False, support_fn_call: bool | None = None, max_length: int = 8192, **kwargs):
+        super().__init__(api_base, api_key, model, support_fn_call, max_length, **kwargs)
         self.enable_thinking = enable_thinking
 
     async def _chat_no_stream(self, messages: List[dict], stop: List[str] | None = None, tools: List[dict] | None = None, tool_choice: ToolChoice = ToolChoice.AUTO, **kwargs) -> Tuple[str, str, list]:

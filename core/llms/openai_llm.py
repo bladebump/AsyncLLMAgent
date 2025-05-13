@@ -8,7 +8,7 @@ from core.config import config
 class OpenAICoT(AsyncBaseChatCOTModel):
     """支持链式思考的OpenAI模型实现，集成了原OpenAi类的功能"""
     
-    def __init__(self, api_base: str,api_key: str,model: str, support_fn_call: bool | None = None,max_length: int = 8192):
+    def __init__(self, api_base: str,api_key: str,model: str, support_fn_call: bool | None = None,max_length: int = 8192, **kwargs):
         super().__init__(model, support_fn_call, max_length=max_length)
         logger.info(f'Initializing OpenAI CoT client | Model: {self.model} | URL: {api_base} ')
         self.client = AsyncOpenAI(api_key=api_key, base_url=api_base)

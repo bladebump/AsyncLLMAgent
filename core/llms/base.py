@@ -16,7 +16,8 @@ class AsyncBaseLLMModel(ABC):
     def __init__(self,
                  model: str,
                  support_fn_call: bool | None = None,
-                 max_length: int = 8192):
+                 max_length: int = 8192,
+                 **kwargs):
         self._support_fn_call = support_fn_call
         self.model = model
         self.max_length = max_length
