@@ -10,17 +10,7 @@ import random
 import httpx
 
 async def analyze_competition_completeness(competition: Competition, user_input: str, llm: AsyncBaseChatCOTModel) -> tuple[str, list[str]]:
-    """
-    分析竞赛配置的完整性，确定下一步需要填写的内容
-    
-    Args:
-        competition: 当前竞赛配置
-        user_input: 用户输入
-        llm: 语言模型
-        
-    Returns:
-        tuple: (下一步指导, 缺失字段列表)
-    """
+    """分析竞赛配置的完整性，确定下一步需要填写的内容"""
     # 将竞赛对象转换为字典
     competition_dict = competition.model_dump(mode='python')
     missing_fields = check_item_missing_field(competition)
@@ -52,7 +42,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
 
 注意: 不要仅因为没有缺失字段就判定为完成，必须用户明确确认才返回"竞赛配置完成"。
 """
-    thinking, next_step = await llm.chat(prompt, stream=False, temperature=0.01)
+    thinking, next_step, _ = await llm.chat(prompt, stream=False, temperature=0.01)
     
     # 检查返回的内容，如果包含"竞赛配置完成"就标准化
     if "竞赛配置完成" in next_step:
@@ -61,19 +51,7 @@ async def analyze_competition_completeness(competition: Competition, user_input:
     return next_step, missing_fields
 
 async def process_user_input(competition: Competition, user_input: str, history: list[dict], llm: AsyncBaseChatCOTModel, token: str) -> tuple[Competition, str]:
-    """
-    处理用户输入并更新competition对象
-    
-    Args:
-        competition: 当前竞赛配置
-        user_input: 用户输入
-        history: 对话历史
-        llm: 语言模型
-        token: 用户token
-        
-    Returns:
-        tuple: (更新后的竞赛对象, 更新消息)
-    """
+    """处理用户输入并更新competition对象"""
     # 将竞赛对象转换为字典
     competition_dict = competition.model_dump(mode='python')
     # 分析当前竞赛配置的缺失字段
@@ -137,9 +115,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
 请尽量准确解析用户意图，即使用户输入格式不规范或信息不完整。
 """
     
-    messages = deepcopy(history)
-    messages.append(Message.user_message(prompt))
-    thinking, parse_result = await llm.chat(messages=messages, stream=False, temperature=0.01)
+    thinking, parse_result, _ = await llm.chat(prompt, stream=False, temperature=0.01)
     logger.debug(f"解析用户输入结果: {parse_result}")
     
     try:
@@ -229,6 +205,7 @@ async def process_user_input(competition: Competition, user_input: str, history:
         return competition, f"处理用户输入失败: {e}"
 
 async def get_corpus_data(token: str, corpus_type: str, difficulty: str|None, classify: str|None) -> dict:
+    """获取平台的题目信息"""
     if not (corpus_type in ["CTF", "AWD", "BTC"] or corpus_type in ["ctf", "awd", "btc"]):
         raise ValueError("corpus_type 必须是 CTF, AWD, BTC 或 ctf, awd, btc")
     url = f"{config.platform.url}/slab-match/api/v1/corpus/{corpus_type.lower()}/list"
@@ -247,14 +224,14 @@ async def get_corpus_data(token: str, corpus_type: str, difficulty: str|None, cl
         response = await client.get(url, headers=headers, params=params)
         response_data = response.json()
         corpus_data = []
+        if "tbody" not in response_data["data"]:
+            raise ValueError(f"获取题库失败: {response_data['message']}")
         for item in response_data["data"]["tbody"]:
             corpus_data.append(item['id'])
         return corpus_data
 
 async def choose_corpus(competition_dict: dict, field_path: str, update_value: str, llm: AsyncBaseChatCOTModel, token: str) -> tuple[bool, str]:
-    """
-    选择题库
-    """
+    """选择题库"""
     parent_path = field_path[:field_path.rfind(".")]
     current = get_field_by_path(competition_dict, parent_path)
     corpus_list = []

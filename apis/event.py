@@ -15,6 +15,7 @@ class EventPost(BaseModel):
 
 @event_router.post("/event_analysis")
 async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(get_llm),cot_llm:AsyncBaseChatCOTModel = Depends(get_llm_cot)):
+    """事件分析，将frame转换成event"""
     logger.debug(f"frame_list: {events.frame_list}")
     parser = ParserFactory.create_parser(events.parser_type, events.frame_list)
     frame_list = parser.parse()
@@ -66,7 +67,7 @@ async def event_analysis(events: EventPost, llm:AsyncBaseChatCOTModel = Depends(
 7. 对于Tab补全等操作，应将其视为命令输入的一部分，与后续执行合并为一个事件
 """
     use_llm = cot_llm if events.use_cot_model else llm
-    _, resp = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
+    _, resp, _ = await use_llm.chat(prompt=prompt, stream=False, temperature=0.01)
     if resp == "无":
         return {"code": 200, "error": "", "data": {"event_list": [], "request_id": events.request_id}}
     try:

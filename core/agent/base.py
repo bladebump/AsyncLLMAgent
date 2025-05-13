@@ -20,7 +20,6 @@ class BaseAgent(ABC):
         memory: AsyncMemory,
         description: Optional[str] = None,
         system_prompt: Optional[str] = None,
-        next_step_prompt: Optional[str] = None,
         state: AgentState = AgentState.IDLE,
         max_steps: int = 10,
         current_step: int = 0,
@@ -33,7 +32,6 @@ class BaseAgent(ABC):
 
         # 提示
         self.system_prompt = system_prompt
-        self.next_step_prompt = next_step_prompt
 
         # 依赖
         self.llm = llm
@@ -53,17 +51,7 @@ class BaseAgent(ABC):
 
     @asynccontextmanager
     async def state_context(self, new_state: AgentState):
-        """安全代理状态转换的上下文管理器。
-
-        Args:
-            new_state: 在上下文期间要转换到的状态。
-
-        Yields:
-            None: 允许在新的状态下执行。
-
-        Raises:
-            ValueError: 如果new_state无效。
-        """
+        """安全代理状态转换的上下文管理器。"""
         if not isinstance(new_state, AgentState):
             raise ValueError(f"Invalid state: {new_state}")
 
@@ -77,18 +65,8 @@ class BaseAgent(ABC):
         finally:
             self.state = previous_state  # 恢复到之前的状态
 
-    async def run(self, request: Optional[str] = None) -> AgentResult:
-        """异步执行代理的主循环。
-
-        Args:
-            request: 可选的初始用户请求。
-
-        Returns:
-            总结执行结果的字符串。
-
-        Raises:
-            RuntimeError: 如果代理在开始时不是IDLE状态。
-        """
+    async def run(self, request: Optional[str] = None) -> list[AgentResult]:
+        """非流式异步执行代理的主循环。"""
         if self.state != AgentState.IDLE:
             raise RuntimeError(f"无法从状态运行代理: {self.state}")
 
@@ -96,7 +74,7 @@ class BaseAgent(ABC):
             self.request = request
             await self.memory.add(Message.user_message(request))
 
-        results: List[str] = []
+        results: List[AgentResult] = []
         async with self.state_context(AgentState.RUNNING):
             while (
                 self.current_step < self.max_steps and self.state != AgentState.FINISHED
@@ -109,27 +87,16 @@ class BaseAgent(ABC):
                 if await self.is_stuck():
                     await self.handle_stuck_state()
 
-                results.append(f"Step {self.current_step}: {step_result}")
+                results.append(step_result)
 
             if self.current_step >= self.max_steps:
                 self.current_step = 0
                 self.state = AgentState.IDLE
-                results.append(f"终止: 达到最大步骤 ({self.max_steps})")
-        return "\n".join(results) if results else "未执行步骤"
+                results.append(AgentResult(thinking="", content="终止: 达到最大步骤"))
+        return results
     
     async def run_stream(self, request: Optional[str] = None) -> asyncio.Queue:
-        """异步执行代理的主循环，使用队列返回结果。
-
-        Args:
-            request: 可选的初始用户请求。
-
-        Returns:
-            asyncio.Queue: 包含结果的队列，可以通过queue.get()获取结果。
-                           最后会返回一个AgentDone对象标记执行完成。
-
-        Raises:
-            RuntimeError: 如果代理在开始时不是IDLE状态。
-        """
+        """流式异步执行代理的主循环，使用队列返回结果。"""
         result_queue = asyncio.Queue()
         
         if self.state != AgentState.IDLE:
@@ -145,7 +112,7 @@ class BaseAgent(ABC):
         
         return result_queue
 
-    async def _run_and_fill_queue(self, queue: asyncio.Queue) -> None:
+    async def _run_and_fill_queue(self, queue: asyncio.Queue):
         """内部方法，执行步骤并将结果放入队列。"""
         async with self.state_context(AgentState.RUNNING):
             while (
@@ -153,13 +120,11 @@ class BaseAgent(ABC):
             ):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{self.max_steps}")
-                step_result = await self.step()
+                await self.step_stream(queue)
 
                 # Check for stuck state
                 if await self.is_stuck():
                     await self.handle_stuck_state()
-
-                await queue.put(f"Step {self.current_step}: {step_result}")
 
             if self.current_step >= self.max_steps:
                 self.current_step = 0
@@ -172,6 +137,12 @@ class BaseAgent(ABC):
     @abstractmethod
     async def step(self) -> AgentResult:
         """执行代理工作流中的单个步骤。
+        必须由子类实现以定义特定行为。
+        """
+
+    @abstractmethod
+    async def step_stream(self, queue: asyncio.Queue):
+        """执行代理工作流中的单个步骤，使用流返回结果。
         必须由子类实现以定义特定行为。
         """
 

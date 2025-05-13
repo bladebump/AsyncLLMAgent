@@ -123,11 +123,7 @@ class MCPAgent(ToolCallAgent):
         )
 
     async def _refresh_tools(self) -> Tuple[List[str], List[str]]:
-        """从MCP服务器刷新可用工具列表。
-
-        返回:
-            (added_tools, removed_tools)元组
-        """
+        """从MCP服务器刷新可用工具列表。"""
         if not self.mcp_clients.session:
             return [], []
 

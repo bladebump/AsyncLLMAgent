@@ -1,40 +1,26 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
-from pydantic import BaseModel
 from core.agent import BaseAgent
-
-class BaseFlow(BaseModel, ABC):
+import asyncio
+class BaseFlow(ABC):
     """支持多个代理的执行流程基类"""
 
-    agents: Dict[str, BaseAgent]
-    tools: Optional[List] = None
-    primary_agent_key: Optional[str] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-
     def __init__(
-        self, agents: Union[BaseAgent, List[BaseAgent], Dict[str, BaseAgent]], **data
+        self, agents: Union[BaseAgent, List[BaseAgent], Dict[str, BaseAgent]], tools: Optional[List] = None, primary_agent_key: Optional[str] = None
     ):
-        # Handle different ways of providing agents
         if isinstance(agents, BaseAgent):
-            agents_dict = {"default": agents}
+            agents_dict = {agents.name: agents}
         elif isinstance(agents, list):
-            agents_dict = {f"agent_{i}": agent for i, agent in enumerate(agents)}
+            agents_dict = {agent.name: agent for agent in agents}
         else:
             agents_dict = agents
 
-        # If primary agent not specified, use first agent
-        primary_key = data.get("primary_agent_key")
-        if not primary_key and agents_dict:
-            primary_key = next(iter(agents_dict))
-            data["primary_agent_key"] = primary_key
-
-        # Set the agents dictionary
-        data["agents"] = agents_dict
-
-        # Initialize using BaseModel's init
-        super().__init__(**data)
+        self.agents = agents_dict
+        self.tools = tools
+        if primary_agent_key is None:
+            self.primary_agent_key = list(agents_dict.keys())[0]
+        else:
+            self.primary_agent_key = primary_agent_key
 
     @property
     def primary_agent(self) -> Optional[BaseAgent]:
@@ -50,5 +36,5 @@ class BaseFlow(BaseModel, ABC):
         self.agents[key] = agent
 
     @abstractmethod
-    async def execute(self, input_text: str) -> str:
-        """执行流程"""
+    async def execute(self, input_text: str) -> asyncio.Queue:
+        """执行流程，以流式方式返回结果，返回的队列中，每个元素是一个asyncio.Queue，用于存储每个步骤的结果"""

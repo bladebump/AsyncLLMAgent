@@ -13,27 +13,39 @@ llm_providers:
     model: "deepseek-chat"
     api_key: "your-deepseek-api-key"
     api_base: "https://api.deepseek.com"
+    model_base: "openai"
   
   siliconflow:
     model: "Pro/deepseek-ai/DeepSeek-V3"
     api_key: "your-siliconflow-api-key"
     api_base: "https://api.siliconflow.cn/v1"
+    model_base: "openai"
   
   gpt4o:
     model: "gpt-4o"
     api_key: "your-gpt4o-api-key"
     api_base: "https://api.chatanywhere.tech/v1"
+    model_base: "openai"
   
   qwen:
     model: "qwen-max"
     api_key: "your-qwen-api-key"
     api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    model_base: "qwen"
 
 # CoT LLM 设置
-llm_cot:
-  model: "deepseek-reasoner"
-  api_key: "your-deepseek-reasoner-api-key"
-  api_base: "https://api.deepseek.com"
+llm_cot_providers:
+  deepseek:
+    model: "deepseek-reasoner"
+    api_key: "your-deepseek-reasoner-api-key"
+    api_base: "https://api.deepseek.com"
+    model_base: "openai"
+
+  qwen:
+    model: "qwen3-235b-a22b"
+    api_key: "your-qwen-api-key"
+    api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    model_base: "qwen"
 
 # Embedding 设置
 embedding:
@@ -68,6 +80,10 @@ chunk:
 # RAG 参数
 rag:
   top_k: 5 
+
+# ASR 设置
+asr:
+  url: "http://127.0.0.1:9346/asr_recognition"
 
 # 平台设置
 platform:

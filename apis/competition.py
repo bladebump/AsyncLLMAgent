@@ -39,7 +39,7 @@ async def wp_format(wp_format: WPFormat, llm: AsyncBaseChatCOTModel = Depends(ge
 
 {wp_format.wp}
 """
-    thinking, response = await llm.chat(prompt,stream=False)
+    thinking, response, _ = await llm.chat(prompt,stream=False)
     return {"code": 200, "error": None, "data": {"wp": response, "thinking": thinking}}
 
 class CreateCompetitionRequest(BaseModel):
@@ -125,7 +125,7 @@ async def create_competition(createCompetitionRequest: CreateCompetitionRequest,
         history.append(Message.user_message(prompt))
         all_answer = ""
         thinking = ""
-        async for chunk_thinking, chunk_response in await llm.chat(messages=history, stream=True, temperature=0.01):
+        async for chunk_thinking, chunk_response, _ in await llm.chat(messages=history, stream=True, temperature=0.01):
             thinking += chunk_thinking
             all_answer += chunk_response
             if createCompetitionRequest.use_cot_model:

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -29,16 +29,13 @@ class AgentState(str, Enum):
     FINISHED = "FINISHED"
     ERROR = "ERROR"
 
+class QueueEnd(BaseModel):
+    """标记队列结束的消息"""
 
 class AgentDone(BaseModel):
     """标记代理执行完成的消息"""
     message: str = Field(default="代理执行完成")
     reason: Optional[str] = Field(default=None)
-
-class AgentResult(BaseModel):
-    """代理执行结果"""
-    reason: str
-    result: str
 
 class Function(BaseModel):
     name: str
@@ -52,6 +49,16 @@ class ToolCall(BaseModel):
     type: str = "function"
     function: Function
 
+class AgentResult(BaseModel):
+    """代理执行结果"""
+    thinking: str
+    content: str
+
+class AgentResultStream(BaseModel):
+    """代理执行结果流式"""
+    thinking: str
+    content: str
+    tool_calls: List[ToolCall] | None = None
 
 class Message:
     """Represents a chat message in the conversation"""

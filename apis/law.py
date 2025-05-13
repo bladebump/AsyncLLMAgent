@@ -26,12 +26,12 @@ async def generate_analysis(msg: str, history: list, use_cot_model: bool, system
     all_thinking = ""
     all_answer = ""
     if use_cot_model:
-        async for thinking, resp in await cot_llm.chat(messages=history, stream=True):
+        async for thinking, resp, _ in await cot_llm.chat(messages=history, stream=True):
             all_thinking += thinking
             all_answer += resp
             yield {"thinking": all_thinking, "answer": all_answer}
     else:
-        async for _, resp in await llm.chat(messages=history, stream=True):
+        async for _, resp, _ in await llm.chat(messages=history, stream=True):
             all_answer += resp
             yield {"answer": all_answer}
 
