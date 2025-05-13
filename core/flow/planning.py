@@ -2,13 +2,12 @@ import json
 import time
 import asyncio
 from enum import Enum
-from typing import Dict, List, Optional, Union
-from pydantic import Field
+from typing import Dict, List, Optional
 from core.agent.base import BaseAgent
 from core.flow.base import BaseFlow
 from core.llms import AsyncBaseChatCOTModel
 from utils.log import logger
-from core.schema import AgentState, Message, ToolChoice, AgentResult, AgentResultStream, AgentDone, QueueEnd
+from core.schema import AgentState, Message, ToolChoice, AgentResultStream, AgentDone, QueueEnd
 from core.tools import PlanningTool
 
 
@@ -59,6 +58,44 @@ class PlanningFlow(BaseFlow):
         self.active_plan_id = active_plan_id or f"plan_{int(time.time())}"
         self.current_step_index = current_step_index
 
+    # 辅助方法：获取计划数据
+    def _get_plan_data(self) -> Optional[dict]:
+        """安全地获取当前活动计划的数据"""
+        if not self.active_plan_id or self.active_plan_id not in self.planning_tool.plans:
+            logger.error(f"计划 ID {self.active_plan_id} 未找到")
+            return None
+        return self.planning_tool.plans[self.active_plan_id]
+
+    # 辅助方法：更新步骤状态
+    async def _update_step_status(self, step_index: int, status: str) -> bool:
+        """更新指定步骤的状态，失败时进行直接更新"""
+        try:
+            await self.planning_tool.execute(
+                command="mark_step",
+                plan_id=self.active_plan_id,
+                step_index=step_index,
+                step_status=status,
+            )
+            logger.info(f"在计划 {self.active_plan_id} 中标记步骤 {step_index} 为 {status}")
+            return True
+        except Exception as e:
+            logger.warning(f"更新步骤状态时出错: {e}")
+            # 直接在计划数据中更新状态
+            plan_data = self._get_plan_data()
+            if not plan_data:
+                return False
+                
+            step_statuses = plan_data.get("step_statuses", [])
+            
+            # 确保step_statuses列表足够长
+            while len(step_statuses) <= step_index:
+                step_statuses.append(PlanStepStatus.NOT_STARTED.value)
+                
+            # 更新状态
+            step_statuses[step_index] = status
+            plan_data["step_statuses"] = step_statuses
+            return True
+
     def get_executor(self, agent_name: Optional[str] = None) -> BaseAgent:
         """
         获取适合当前步骤的执行代理。
@@ -103,7 +140,7 @@ class PlanningFlow(BaseFlow):
         if input_text:
             create_plan_queue = asyncio.Queue()
             await result_queue.put(create_plan_queue)
-            create_plan_queue = await self._create_initial_plan(input_text, create_plan_queue)
+            await self._create_initial_plan(input_text, create_plan_queue)
                 
             # 确认计划是否成功创建
             if self.active_plan_id not in self.planning_tool.plans:
@@ -139,7 +176,7 @@ class PlanningFlow(BaseFlow):
 
         await result_queue.put(AgentDone())
 
-    async def _create_initial_plan(self, request: str, result_queue: asyncio.Queue) -> asyncio.Queue:
+    async def _create_initial_plan(self, request: str, result_queue: asyncio.Queue):
         """使用流程的LLM和PlanningTool基于请求创建初始计划。"""
         logger.info(f"正在创建初始计划: {self.active_plan_id}")
 
@@ -187,12 +224,9 @@ class PlanningFlow(BaseFlow):
                 if tool_call.function.name == "planning":
                     # 解析参数
                     args = tool_call.function.arguments
+
                     if isinstance(args, str):
-                        try:
-                            args = json.loads(args)
-                        except json.JSONDecodeError:
-                            logger.error(f"解析工具参数失败: {args}")
-                            continue
+                        args = json.loads(args)
 
                     # 确保plan_id正确设置并执行工具
                     args["plan_id"] = self.active_plan_id
@@ -209,7 +243,7 @@ class PlanningFlow(BaseFlow):
                     
                     logger.info(f"计划创建结果: {str(result)}")
                     await result_queue.put(QueueEnd())
-                    return result_queue
+                    return
 
         # 如果执行到达这里，则创建一个默认计划
         logger.warning("正在创建默认计划")
@@ -232,23 +266,18 @@ class PlanningFlow(BaseFlow):
         ))
         
         await result_queue.put(QueueEnd())
-        return result_queue
+        return
 
     async def _get_current_step_info(self) -> tuple[Optional[int], Optional[dict]]:
         """
         解析当前计划以识别第一个未完成的步骤的索引和信息。
         如果没有活动步骤，则返回 (None, None)。
         """
-        if (
-            not self.active_plan_id
-            or self.active_plan_id not in self.planning_tool.plans
-        ):
-            logger.error(f"计划 ID {self.active_plan_id} 未找到")
+        plan_data = self._get_plan_data()
+        if not plan_data:
             return None, None
 
         try:
-            # 直接从计划工具存储中访问计划数据
-            plan_data = self.planning_tool.plans[self.active_plan_id]
             steps = plan_data.get("steps", [])
             step_statuses = plan_data.get("step_statuses", [])
 
@@ -261,25 +290,7 @@ class PlanningFlow(BaseFlow):
 
                 if status in PlanStepStatus.get_active_statuses():
                     # 将当前步骤标记为进行中
-                    try:
-                        await self.planning_tool.execute(
-                            command="mark_step",
-                            plan_id=self.active_plan_id,
-                            step_index=i,
-                            step_status=PlanStepStatus.IN_PROGRESS.value,
-                        )
-                    except Exception as e:
-                        logger.warning(f"标记步骤为进行中时出错: {e}")
-                        # 如果需要，直接更新步骤状态
-                        if i < len(step_statuses):
-                            step_statuses[i] = PlanStepStatus.IN_PROGRESS.value
-                        else:
-                            while len(step_statuses) < i:
-                                step_statuses.append(PlanStepStatus.NOT_STARTED.value)
-                            step_statuses.append(PlanStepStatus.IN_PROGRESS.value)
-
-                        plan_data["step_statuses"] = step_statuses
-
+                    await self._update_step_status(i, PlanStepStatus.IN_PROGRESS.value)
                     return i, step
 
             return None, None  # 没有活动步骤
@@ -346,31 +357,7 @@ class PlanningFlow(BaseFlow):
         if self.current_step_index is None:
             return
 
-        try:
-            # 标记步骤为已完成
-            await self.planning_tool.execute(
-                command="mark_step",
-                plan_id=self.active_plan_id,
-                step_index=self.current_step_index,
-                step_status=PlanStepStatus.COMPLETED.value,
-            )
-            logger.info(
-                f"在计划 {self.active_plan_id} 中标记步骤 {self.current_step_index} 为已完成"
-            )
-        except Exception as e:
-            logger.warning(f"更新计划状态时出错: {e}")
-            # 直接在计划工具存储中更新步骤状态
-            if self.active_plan_id in self.planning_tool.plans:
-                plan_data = self.planning_tool.plans[self.active_plan_id]
-                step_statuses = plan_data.get("step_statuses", [])
-
-                # 确保step_statuses列表足够长
-                while len(step_statuses) <= self.current_step_index:
-                    step_statuses.append(PlanStepStatus.NOT_STARTED.value)
-
-                # 更新状态
-                step_statuses[self.current_step_index] = PlanStepStatus.COMPLETED.value
-                plan_data["step_statuses"] = step_statuses
+        await self._update_step_status(self.current_step_index, PlanStepStatus.COMPLETED.value)
 
     async def _get_plan_text(self) -> str:
         """获取当前计划作为格式化文本。"""
@@ -385,11 +372,11 @@ class PlanningFlow(BaseFlow):
 
     def _generate_plan_text_from_storage(self) -> str:
         """从存储中直接生成计划文本，如果计划工具失败。"""
-        try:
-            if self.active_plan_id not in self.planning_tool.plans:
-                return f"Error: 计划 ID {self.active_plan_id} 未找到"
+        plan_data = self._get_plan_data()
+        if not plan_data:
+            return f"Error: 计划 ID {self.active_plan_id} 未找到"
 
-            plan_data = self.planning_tool.plans[self.active_plan_id]
+        try:
             title = plan_data.get("title", "Untitled Plan")
             steps = plan_data.get("steps", [])
             step_statuses = plan_data.get("step_statuses", [])
@@ -447,12 +434,8 @@ class PlanningFlow(BaseFlow):
         result_queue = asyncio.Queue()
         await total_queue.put(result_queue)
 
-        # 使用流程的LLM直接创建总结
         try:
-            system_message = Message.system_message(
-                "你是一个计划助手。你的任务是总结完成的计划。"
-            )
-
+            system_message = Message.system_message("你是一个计划助手。你的任务是总结完成的计划。")
             user_message = Message.user_message(
                 f"计划已完成。以下是最终计划状态:\n\n{plan_text}\n\n请提供已完成的内容总结和任何最终想法。"
             )
@@ -472,7 +455,7 @@ class PlanningFlow(BaseFlow):
                 
                 await result_queue.put(AgentResultStream(
                     thinking=all_thinking,
-                    content="计划已完成:\n\n" + all_content,
+                    content="计划已完成:\n\n" + all_content if all_content else "",
                     tool_calls=[]
                 ))
 

@@ -28,7 +28,7 @@ async def main():
     )
     try:
         queue = await asyncio.wait_for(
-            flow.execute(r"规划杭州去北京旅游的路线"),
+            flow.execute(r"今天杭州是否值得外出游玩"),
             timeout=3600
         )
         while True:
