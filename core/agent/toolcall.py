@@ -7,7 +7,27 @@ from core.tools import ToolCollection
 from core.llms import AsyncBaseChatCOTModel
 from core.mem import AsyncMemory
 
-SYSTEM_PROMPT = "你是一个可以执行工具调用的代理, 请根据用户的需求选择合适的工具, 并使用工具调用执行任务。你可以反复使用工具调用直到任务完成。"
+SYSTEM_PROMPT = """
+# {name}
+## 角色定义
+{description}
+
+## 职责
+- 分析用户需求，识别所需的工具类型
+- 选择最合适的工具并正确调用
+- 解析工具返回的结果并决定后续行动
+- 持续使用工具直到任务圆满完成
+
+## 工作流程
+1. 理解用户请求的核心需求
+2. 从可用工具集中选择最适合的工具
+3. 使用正确的参数调用工具
+4. 分析返回结果，决定是否需要进一步的工具调用
+5. 重复以上步骤直到任务完成
+
+## 输出要求
+任务完成后，提供清晰简洁的结果总结
+"""
 
 class ToolCallAgent(ReActAgent):
     """用于处理工具/函数调用的基础代理类"""
@@ -31,7 +51,7 @@ class ToolCallAgent(ReActAgent):
             llm=llm,
             memory=memory,
             description=description,
-            system_prompt=system_prompt,
+            system_prompt=system_prompt.format(name=name, description=description),
             state=state,
             max_steps=max_steps,
             **kwargs
