@@ -1,5 +1,5 @@
 from contextlib import AsyncExitStack
-from typing import List, Optional
+from typing import List, Dict, Optional
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -9,6 +9,7 @@ from mcp.types import TextContent
 from utils.log import logger
 from core.tools.base import BaseTool, ToolResult
 from core.tools.tool_collection import ToolCollection
+
 
 
 class MCPClientTool(BaseTool):
@@ -31,34 +32,35 @@ class MCPClientTool(BaseTool):
             return ToolResult(error=f"执行工具时出错: {str(e)}")
 
 
+
 class MCPClients(ToolCollection):
     """
-    一个工具集合，连接到MCP服务器并通过模型上下文协议管理可用工具。
+    一个工具集合，连接多个MCP服务器并管理可用工具。
     """
 
-    session: Optional[ClientSession] = None
-    exit_stack: AsyncExitStack = None
-    description: str = "MCP客户端工具用于服务器交互"
-
     def __init__(self):
-        super().__init__()  # 使用空工具列表初始化
-        self.name = "mcp"  # 保持名称以向后兼容
-        self.exit_stack = AsyncExitStack()
+        super().__init__()
+        self.name = "mcp"
+        self.sessions: Dict[str, ClientSession] = {}
+        self.exit_stacks: Dict[str, AsyncExitStack] = {}
+        self.description = "MCP客户端工具用于多个服务器交互"
 
-    async def connect_sse(self, server_url: str) -> None:
-        """使用SSE传输连接到MCP服务器。"""
-        if not server_url:
-            raise ValueError("服务器URL是必需的。")
-        if self.session:
-            await self.disconnect()
+
+    async def connect_sse(self, server_id: str, server_url: str) -> None:
+        if not server_url or not server_id:
+            raise ValueError("服务器ID和URL是必需的。")
+        await self.disconnect(server_id)
+
+        exit_stack = AsyncExitStack()
+        self.exit_stacks[server_id] = exit_stack
 
         streams_context = sse_client(url=server_url)
-        streams = await self.exit_stack.enter_async_context(streams_context)
-        self.session = await self.exit_stack.enter_async_context(
-            ClientSession(*streams)
-        )
+        streams = await exit_stack.enter_async_context(streams_context)
+        read, write = streams
+        session = await exit_stack.enter_async_context(ClientSession(read, write))
+        self.sessions[server_id] = session
 
-        await self._initialize_and_list_tools()
+        await self._initialize_and_list_tools(server_id, session)
 
     async def connect_stdio(self, command: str, args: List[str]) -> None:
         """使用stdio传输连接到MCP服务器。"""
@@ -78,38 +80,40 @@ class MCPClients(ToolCollection):
 
         await self._initialize_and_list_tools()
 
-    async def _initialize_and_list_tools(self) -> None:
+
+    async def _initialize_and_list_tools(self, server_id: str, session: ClientSession) -> None:
         """初始化会话并填充工具映射。"""
-        if not self.session:
-            raise RuntimeError("会话未初始化。")
+        await session.initialize()
+        response = await session.list_tools()
 
-        await self.session.initialize()
-        response = await self.session.list_tools()
-
-        # 清除现有工具
-        self.tools = tuple()
-        self.tool_map = {}
-
-        # 为每个服务器工具创建适当的工具对象
         for tool in response.tools:
+            qualified_name = f"{server_id}:{tool.name}"
             server_tool = MCPClientTool(
-                name=tool.name,
-                description=tool.description,
+                name=qualified_name,
+                description=f"[{server_id}] {tool.description}",
                 parameters=tool.inputSchema,
-                session=self.session,
+                session=session,
             )
-            self.tool_map[tool.name] = server_tool
+            self.tool_map[qualified_name] = server_tool
 
         self.tools = tuple(self.tool_map.values())
-        logger.info(
-            f"已连接到服务器，工具: {[tool.name for tool in response.tools]}"
-        )
+        logger.info(f"[{server_id}] 已连接，工具: {[tool.name for tool in response.tools]}")
 
-    async def disconnect(self) -> None:
+    async def disconnect(self, server_id: str) -> None:
         """断开与MCP服务器的连接并清理资源。"""
-        if self.session and self.exit_stack:
-            await self.exit_stack.aclose()
-            self.session = None
-            self.tools = tuple()
-            self.tool_map = {}
-            logger.info("已断开与MCP服务器的连接")
+        if server_id in self.exit_stacks:
+            try:
+                await self.exit_stacks[server_id].aclose()
+            except Exception as e:
+                logger.warning(f"关闭 {server_id} 时发生异常: {e}")
+            finally:
+                del self.exit_stacks[server_id]
+        if server_id in self.sessions:
+            del self.sessions[server_id]
+            
+        self.tool_map = {
+            name: tool for name, tool in self.tool_map.items()
+            if not name.startswith(f"{server_id}:")
+        }
+        self.tools = tuple(self.tool_map.values())
+        logger.info(f"[{server_id}] 已断开连接")
